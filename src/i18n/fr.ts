@@ -79,6 +79,10 @@ export const fr = {
     shareText: 'J\'ai scoré {score} pts sur WhatItCost ! Peux-tu faire mieux ?',
     linkCopied: 'Lien copié !',
     imageDownloaded: 'Image téléchargée ! Partage-la sur tes réseaux 🎬',
+    imageCopied: 'Image copiée dans le presse-papier ! 🎬',
+    download: 'Télécharger',
+    copyImage: 'Copier l\'image',
+    close: 'Fermer',
     scoreLabels: {
       perfect: 'Parfait !',
       great: 'Très proche !',

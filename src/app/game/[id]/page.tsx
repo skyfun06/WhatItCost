@@ -156,9 +156,12 @@ export default function GamePage() {
   const [showForceAdvance, setShowForceAdvance] = useState(false)
   // Indice (tous joueurs) après une longue attente : suggère de rafraîchir.
   const [showStuckHint, setShowStuckHint] = useState(false)
-  // Toast éphémère (ex : "Lien copié !") sur l'écran final
+  // Toast éphémère (ex : "Image copiée !") sur l'écran final
   const [toast, setToast] = useState<string | null>(null)
-  // Carte-score hors écran capturée par html2canvas au partage
+  // Modal d'aperçu de la carte-score + facteur d'échelle de l'aperçu
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [previewScale, setPreviewScale] = useState(1)
+  // Carte-score (rendue dans le modal) capturée par html2canvas
   const scoreCardRef = useRef<HTMLDivElement>(null)
 
   // Refs to avoid stale closures in Realtime callbacks
@@ -440,49 +443,25 @@ export default function GamePage() {
     }
   }, [gameId, playerId, reconcile])
 
-  // Partage du score : capture la carte-score en image (html2canvas), puis
-  // partage natif du fichier si supporté, sinon téléchargement + toast.
-  const handleShare = useCallback(async () => {
+  // Capture la carte-score (visible dans le modal) en blob PNG via html2canvas.
+  const captureScoreCard = useCallback(async (): Promise<Blob | null> => {
     const node = scoreCardRef.current
-    if (!node) return
+    if (!node) return null
+    const html2canvas = (await import('html2canvas')).default
+    const canvas = await html2canvas(node, {
+      backgroundColor: '#111111',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    })
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+  }, [])
+
+  // Téléchargement direct du PNG
+  const handleDownload = useCallback(async () => {
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const canvas = await html2canvas(node, {
-        backgroundColor: '#111111',
-        scale: 2,
-        logging: false,
-        useCORS: true,
-      })
-      const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob(resolve, 'image/png'),
-      )
-      if (!blob) {
-        console.error('share: html2canvas toBlob a renvoyé null')
-        return
-      }
-      const file = new File([blob], 'mon-score-whatitcost.png', { type: 'image/png' })
-
-      // Partage natif du fichier (mobile surtout) si supporté
-      const canShareFiles =
-        typeof navigator !== 'undefined' &&
-        typeof navigator.canShare === 'function' &&
-        navigator.canShare({ files: [file] }) &&
-        typeof navigator.share === 'function'
-
-      if (canShareFiles) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: 'WhatItCost?',
-            text: t.game.shareText.replace('{score}', formatScore(totalScore)),
-          })
-        } catch {
-          // partage annulé par l'utilisateur — rien à faire
-        }
-        return
-      }
-
-      // Fallback : téléchargement du PNG + toast
+      const blob = await captureScoreCard()
+      if (!blob) { console.error('download: capture nulle'); return }
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -494,9 +473,36 @@ export default function GamePage() {
       setToast(t.game.imageDownloaded)
       setTimeout(() => setToast(null), 2500)
     } catch (e) {
-      console.error('share: échec de génération de la carte-score', e)
+      console.error('download: échec', e)
     }
-  }, [t, totalScore])
+  }, [captureScoreCard, t])
+
+  // Copie l'image dans le presse-papier (ClipboardItem), repli sur téléchargement.
+  const handleCopyImage = useCallback(async () => {
+    try {
+      const blob = await captureScoreCard()
+      if (!blob) { console.error('copy: capture nulle'); return }
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+        setToast(t.game.imageCopied)
+        setTimeout(() => setToast(null), 2500)
+      } else {
+        // Presse-papier image non supporté → on télécharge à la place
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'mon-score-whatitcost.png'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+        setToast(t.game.imageDownloaded)
+        setTimeout(() => setToast(null), 2500)
+      }
+    } catch (e) {
+      console.error('copy: échec', e)
+    }
+  }, [captureScoreCard, t])
 
   // Always call the latest handleSubmit from the timer without re-arming it
   const handleSubmitRef = useRef(handleSubmit)
@@ -542,6 +548,13 @@ export default function GamePage() {
     const id = setTimeout(() => setShowStuckHint(true), 45000)
     return () => clearTimeout(id)
   }, [phase, currentRound])
+
+  // Échelle de l'aperçu : ajuste la carte 800×450 à la largeur du modal/écran.
+  useEffect(() => {
+    if (!shareModalOpen) return
+    const maxW = Math.min((typeof window !== 'undefined' ? window.innerWidth : 800) - 80, 520)
+    setPreviewScale(Math.min(1, maxW / 800))
+  }, [shareModalOpen])
 
   // ─── Loading ───────────────────────────────────────────────────────────────
 
@@ -650,7 +663,7 @@ export default function GamePage() {
               {t.game.playAgain}
             </button>
             <button
-              onClick={handleShare}
+              onClick={() => setShareModalOpen(true)}
               className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
               style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
             >
@@ -682,98 +695,142 @@ export default function GamePage() {
           )}
         </div>
 
-        {/* ─── Carte-score hors écran (capturée par html2canvas au partage) ───
-            position fixed à -9999px : présente dans le DOM mais invisible. */}
-        <div
-          ref={scoreCardRef}
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            left: '-9999px',
-            top: 0,
-            width: '800px',
-            height: '450px',
-            backgroundColor: '#111111',
-            color: '#ffffff',
-            overflow: 'hidden',
-          }}
-        >
-          {/* Motif $ ? statique en diagonale */}
+        {/* ─── Modal d'aperçu + partage de la carte-score ─── */}
+        {shareModalOpen && (
           <div
-            style={{
-              position: 'absolute',
-              inset: '-20%',
-              transform: 'rotate(-20deg)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '38px',
-              pointerEvents: 'none',
-            }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0,0,0,0.85)', animation: 'wicFadeIn 0.2s ease-out' }}
+            onClick={() => setShareModalOpen(false)}
           >
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div
-                key={i}
-                style={{
-                  whiteSpace: 'nowrap',
-                  fontSize: '46px',
-                  fontWeight: 700,
-                  letterSpacing: '46px',
-                  color: '#ffffff',
-                  opacity: 0.05,
-                  lineHeight: 1,
-                }}
-              >
-                {i % 2 === 0 ? '$ ? $ ? $ ? $ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ? $ ? $ ? $ ? $'}
-              </div>
-            ))}
-          </div>
+            <div
+              className="w-full flex flex-col items-center gap-4"
+              style={{
+                maxWidth: '560px',
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '16px',
+                padding: '20px',
+                animation: 'wicPopIn 0.25s ease-out',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Aperçu : la carte 800×450 est mise à l'échelle pour l'affichage,
+                  mais html2canvas la capture à sa taille native (haute résolution). */}
+              <div style={{ width: 800 * previewScale, height: 450 * previewScale, overflow: 'hidden' }}>
+                <div
+                  ref={scoreCardRef}
+                  style={{
+                    width: '800px',
+                    height: '450px',
+                    transform: `scale(${previewScale})`,
+                    transformOrigin: 'top left',
+                    backgroundColor: '#111111',
+                    color: '#ffffff',
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
+                >
+                  {/* Motif $ ? statique en diagonale */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: '-20%',
+                      transform: 'rotate(-20deg)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '38px',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {Array.from({ length: 9 }).map((_, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          whiteSpace: 'nowrap',
+                          fontSize: '46px',
+                          fontWeight: 700,
+                          letterSpacing: '46px',
+                          color: '#ffffff',
+                          opacity: 0.05,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {i % 2 === 0 ? '$ ? $ ? $ ? $ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ? $ ? $ ? $'}
+                      </div>
+                    ))}
+                  </div>
 
-          {/* Contenu */}
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '30px 44px 30px',
-            }}
-          >
-            <p style={{ color: '#FF4D2E', fontSize: '15px', fontWeight: 700, letterSpacing: '0.28em', textTransform: 'uppercase' }}>
-              WHATITCOST.FR
-            </p>
+                  {/* Contenu */}
+                  <div
+                    style={{
+                      position: 'relative',
+                      zIndex: 1,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      padding: '30px 44px',
+                    }}
+                  >
+                    <p style={{ color: '#FF4D2E', fontSize: '15px', fontWeight: 700, letterSpacing: '0.28em', textTransform: 'uppercase' }}>
+                      WHATITCOST.FR
+                    </p>
+                    <p style={{ fontSize: '5rem', fontWeight: 700, lineHeight: 1, marginTop: '8px' }}>
+                      {formatScore(totalScore)}
+                      <span style={{ fontSize: '2rem', marginLeft: '8px', color: 'rgba(255,255,255,0.7)' }}>PTS</span>
+                    </p>
+                    <p style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '4px' }}>
+                      {performanceLabel(pct, t.game)} 🎬
+                    </p>
+                    <div style={{ marginTop: '16px', width: '100%', maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                      {scores.map((s, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#888888' }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
+                            {movies[i]?.title ?? `${t.game.round} ${i + 1}`}
+                          </span>
+                          <span style={{ color: '#cccccc', fontWeight: 600, marginLeft: '12px', whiteSpace: 'nowrap' }}>
+                            {formatScore(s)} {t.game.points}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-            <p style={{ fontSize: '5rem', fontWeight: 700, lineHeight: 1, marginTop: '8px' }}>
-              {formatScore(totalScore)}
-              <span style={{ fontSize: '2rem', marginLeft: '8px', color: 'rgba(255,255,255,0.7)' }}>PTS</span>
-            </p>
-
-            <p style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '4px' }}>
-              {performanceLabel(pct, t.game)} 🎬
-            </p>
-
-            {/* Détail par round */}
-            <div style={{ marginTop: '16px', width: '100%', maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-              {scores.map((s, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#888888' }}>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
-                    {movies[i]?.title ?? `${t.game.round} ${i + 1}`}
-                  </span>
-                  <span style={{ color: '#cccccc', fontWeight: 600, marginLeft: '12px', whiteSpace: 'nowrap' }}>
-                    {formatScore(s)} {t.game.points}
-                  </span>
+                  {/* Bas : texte + barre d'accent corail */}
+                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+                    <p style={{ textAlign: 'center', fontSize: '14px', color: '#ffffff', marginBottom: '12px' }}>whatitcost.fr</p>
+                    <div style={{ height: '8px', backgroundColor: '#FF4D2E' }} />
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap justify-center gap-3 w-full">
+                <button
+                  onClick={handleDownload}
+                  className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
+                  style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+                >
+                  {t.game.download}
+                </button>
+                <button
+                  onClick={handleCopyImage}
+                  className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
+                  style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
+                >
+                  {t.game.copyImage}
+                </button>
+                <button
+                  onClick={() => setShareModalOpen(false)}
+                  className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
+                  style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
+                >
+                  {t.game.close}
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Bas : texte + barre d'accent corail */}
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-            <p style={{ textAlign: 'center', fontSize: '14px', color: '#ffffff', marginBottom: '12px' }}>whatitcost.fr</p>
-            <div style={{ height: '8px', backgroundColor: '#FF4D2E' }} />
-          </div>
-        </div>
+        )}
       </AnimatedBackground>
     )
   }

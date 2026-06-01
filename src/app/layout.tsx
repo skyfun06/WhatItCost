@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     siteName: 'WhatItCost',
     images: [
       {
-        url: 'https://whatitcost.fr/logo.png',
-        width: 512,
-        height: 512,
+        url: 'https://whatitcost.fr/api/og',
+        width: 1200,
+        height: 630,
       },
     ],
     type: 'website',
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'WhatItCost?',
     description: 'Guess the production budget of iconic movies.',
-    images: ['https://whatitcost.fr/og-image.png'],
+    images: ['https://whatitcost.fr/api/og'],
   },
 }
 
@@ -52,9 +52,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={spaceGrotesk.variable}>
       <head>
         {/* og:image explicite (en plus des métadonnées Next) pour les scrapers stricts */}
-        <meta property="og:image" content="https://whatitcost.fr/logo.png" />
-        <meta property="og:image:width" content="512" />
-        <meta property="og:image:height" content="512" />
+        <meta property="og:image" content="https://whatitcost.fr/api/og" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
       </head>
       <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden">
         {/*

@@ -79,6 +79,10 @@ export const en = {
     shareText: 'I scored {score} pts on WhatItCost! Can you beat me?',
     linkCopied: 'Link copied!',
     imageDownloaded: 'Image downloaded! Share it on your socials 🎬',
+    imageCopied: 'Image copied to clipboard! 🎬',
+    download: 'Download',
+    copyImage: 'Copy image',
+    close: 'Close',
     scoreLabels: {
       perfect: 'Perfect!',
       great: 'So close!',
