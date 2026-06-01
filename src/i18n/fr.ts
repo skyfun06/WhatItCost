@@ -66,6 +66,7 @@ export const fr = {
     accuracy: 'Précision',
     waitingOthers: 'En attente des autres joueurs…',
     waitingHost: 'En attente de l\'hôte…',
+    forceNext: 'Forcer le round suivant',
     nextMovie: 'Film suivant',
     nextRound: 'Round suivant',
     seeResults: 'Voir les résultats',

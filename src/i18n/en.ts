@@ -66,6 +66,7 @@ export const en = {
     accuracy: 'Accuracy',
     waitingOthers: 'Waiting for the other players…',
     waitingHost: 'Waiting for the host…',
+    forceNext: 'Force next round',
     nextMovie: 'Next movie',
     nextRound: 'Next round',
     seeResults: 'See results',

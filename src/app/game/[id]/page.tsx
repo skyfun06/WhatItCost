@@ -151,6 +151,9 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(DEFAULT_TIMER_SECONDS)
   const [alreadyAnswered, setAlreadyAnswered] = useState(false)
   const [isHost, setIsHost] = useState(false)
+  // Échappatoire hôte : si l'attente s'éternise (joueur parti, minuteur ∞),
+  // l'hôte peut forcer le round suivant pour ne jamais rester bloqué.
+  const [showForceAdvance, setShowForceAdvance] = useState(false)
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -160,38 +163,85 @@ export default function GamePage() {
   // Synchronous guard against double-submit (state updates are async, so the
   // `submitting` state alone can't block a fast double-click or timer+click race)
   const submittingRef = useRef(false)
+  // playerId lu dans les callbacks Realtime/poll sans dépendance (évite les stale closures)
+  const playerIdRef = useRef<string | null>(null)
+  // Garde anti double-avance côté hôte (le PATCH advance n'est pas atomique)
+  const advancingRef = useRef(false)
   useEffect(() => { currentRoundRef.current = currentRound }, [currentRound])
   useEffect(() => { phaseRef.current = phase }, [phase])
+  useEffect(() => { playerIdRef.current = playerId }, [playerId])
 
-  const fetchFinalScores = useCallback(async () => {
+  // ── Réconciliation multijoueur ────────────────────────────────────────────
+  // Source de vérité = l'état serveur. Appelée par les événements Realtime
+  // (chemin rapide) ET par un polling de secours (filet anti-événement perdu).
+  // Décide la phase à partir de : statut, current_round serveur, et nombre de
+  // réponses pour le round courant. Idempotente.
+  const reconcile = useCallback(async () => {
+    if (phaseRef.current === 'finished') return
     try {
       const res = await fetch(`/api/games/${gameId}`)
+      if (!res.ok) {
+        console.error(`reconcile: GET /api/games/${gameId} → ${res.status}`)
+        return
+      }
       const data = await res.json()
-      setAllPlayers(data.players ?? [])
-    } catch {
-      // fallback: show local score only
-    }
-  }, [gameId])
+      const game = data.game
+      if (!game) {
+        console.error('reconcile: réponse sans game', data)
+        return
+      }
 
-  // Multiplayer: when every player has answered the current round, reveal to all.
-  const checkAllAnswered = useCallback(async () => {
-    const supabase = createClient() as any
-    const round = currentRoundRef.current
-    const [roundsRes, playersRes] = await Promise.all([
-      supabase
-        .from('rounds')
-        .select('id', { count: 'exact', head: true })
-        .eq('game_id', gameId)
-        .eq('round_number', round),
-      supabase
-        .from('players')
-        .select('id', { count: 'exact', head: true })
-        .eq('game_id', gameId),
-    ])
-    const answered = roundsRes.count ?? 0
-    const players = playersRes.count ?? 0
-    if (players > 0 && answered >= players) {
-      setPhase('revealing')
+      // Le minuteur est porté par la partie (défini par l'hôte)
+      setTimerSeconds(game.timer_seconds ?? DEFAULT_TIMER_SECONDS)
+
+      // 1) Partie terminée → écran final avec scores serveur
+      if (game.status === 'finished') {
+        setAllPlayers(data.players ?? [])
+        setPhase('finished')
+        return
+      }
+
+      const serverRound: number = game.current_round ?? 1
+
+      // 2) Nouveau round (rattrape un événement games UPDATE manqué)
+      if (serverRound > currentRoundRef.current) {
+        setCurrentRound(serverRound)
+        setGuessMillions('')
+        setRoundResult(null)
+        setAlreadyAnswered(false)
+        setPhase('guessing')
+        return
+      }
+
+      // 3) Même round → décider guessing / waiting / reveal d'après les réponses
+      const supabase = createClient() as any
+      const [roundsRes, playersRes, mineRes] = await Promise.all([
+        supabase.from('rounds').select('id', { count: 'exact', head: true })
+          .eq('game_id', gameId).eq('round_number', serverRound),
+        supabase.from('players').select('id', { count: 'exact', head: true })
+          .eq('game_id', gameId),
+        playerIdRef.current
+          ? supabase.from('rounds').select('id', { count: 'exact', head: true })
+              .eq('game_id', gameId).eq('round_number', serverRound).eq('player_id', playerIdRef.current)
+          : Promise.resolve({ count: 0, error: null }),
+      ])
+      if (roundsRes.error) console.error('reconcile: comptage rounds', roundsRes.error)
+      if (playersRes.error) console.error('reconcile: comptage players', playersRes.error)
+      if (mineRes.error) console.error('reconcile: comptage round perso', mineRes.error)
+
+      const answered = roundsRes.count ?? 0
+      const totalPlayers = playersRes.count ?? 0
+      const iAnswered = (mineRes.count ?? 0) > 0
+
+      if (totalPlayers > 0 && answered >= totalPlayers) {
+        // Tout le monde a répondu (donc nous aussi) → révélation pour tous
+        if (phaseRef.current !== 'revealing') setPhase('revealing')
+      } else if (iAnswered && phaseRef.current === 'guessing') {
+        // On a déjà répondu (ex : après un refresh) mais pas les autres → attente
+        setPhase('waiting_others')
+      }
+    } catch (e) {
+      console.error('reconcile error', e)
     }
   }, [gameId])
 
@@ -215,51 +265,38 @@ export default function GamePage() {
     roundCountRef.current = parsedMovies.length || DEFAULT_ROUND_COUNT
 
     if (storedMode === 'multiplayer') {
-      // Fetch server state to resume correctly after refresh
-      fetch(`/api/games/${gameId}`)
-        .then((r) => r.json())
-        .then((data) => {
-          // Minuteur défini par l'hôte — partagé via la DB pour tous les joueurs.
-          setTimerSeconds(data.game?.timer_seconds ?? DEFAULT_TIMER_SECONDS)
-          if (data.game?.status === 'finished') {
-            setAllPlayers(data.players ?? [])
-            setPhase('finished')
-          } else {
-            const serverRound = data.game?.current_round ?? 1
-            setCurrentRound(serverRound)
-            setPhase('guessing')
-          }
-        })
-        .catch(() => setPhase('guessing'))
+      // Synchro initiale (gère aussi la reprise après refresh : reconcile lit
+      // l'état serveur et place la bonne phase, y compris round déjà avancé).
+      reconcile()
 
-      // Realtime: games UPDATE = host advanced/finished ; rounds INSERT = someone answered
-      // (timer ci-dessous est ignoré en multi — il vient du serveur, pas du localStorage)
+      // Realtime = chemin rapide. games UPDATE (hôte a avancé / partie finie)
+      // et rounds INSERT (quelqu'un a répondu) déclenchent une réconciliation.
       const supabase = createClient()
       const channel = supabase
         .channel(`game-${gameId}`)
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-          (payload) => {
-            const updated = payload.new as { status: string; current_round: number }
-            if (updated.status === 'finished') {
-              fetchFinalScores().then(() => setPhase('finished'))
-            } else if (updated.current_round > currentRoundRef.current) {
-              setCurrentRound(updated.current_round)
-              setGuessMillions('')
-              setRoundResult(null)
-              setPhase('guessing')
-            }
-          },
+          () => { reconcile() },
         )
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'rounds', filter: `game_id=eq.${gameId}` },
-          () => { checkAllAnswered() },
+          () => { reconcile() },
         )
-        .subscribe()
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            console.error(`Realtime: canal game-${gameId} → ${status}`)
+          }
+        })
+
+      // Filet de sécurité : si un événement Realtime est perdu (free tier, réseau,
+      // onglet en arrière-plan…), le polling rattrape la progression. C'est ce qui
+      // empêche de rester bloqué sur "En attente" alors que tous ont répondu.
+      const poll = setInterval(reconcile, 3000)
 
       return () => {
+        clearInterval(poll)
         supabase.removeChannel(channel)
       }
     } else {
@@ -269,7 +306,7 @@ export default function GamePage() {
       setTimerSeconds(Number.isFinite(storedTimer) && storedTimer >= 0 ? storedTimer : DEFAULT_TIMER_SECONDS)
       setPhase('guessing')
     }
-  }, [gameId, router, fetchFinalScores, checkAllAnswered])
+  }, [gameId, router, reconcile])
 
   // UI: when a new guessing round starts, reset the slider to its default and
   // seed guessMillions so the displayed amount is always coherent/submittable.
@@ -330,9 +367,9 @@ export default function GamePage() {
 
       if (gameMode === 'multiplayer') {
         // Wait for the others; reveal happens once everyone has answered.
-        // Check immediately in case this player was the last to answer.
+        // Reconcile immediately in case this player was the last to answer.
         setPhase('waiting_others')
-        checkAllAnswered()
+        reconcile()
       } else {
         // Solo: stay on the reveal until the player clicks "Film suivant"
         setPhase('revealing')
@@ -350,7 +387,7 @@ export default function GamePage() {
       submittingRef.current = false
       setSubmitting(false)
     }
-  }, [playerId, guessMillions, alreadyAnswered, gameId, currentRound, gameMode, checkAllAnswered])
+  }, [playerId, guessMillions, alreadyAnswered, gameId, currentRound, gameMode, reconcile])
 
   // Slider interaction → keep guessMillions (consumed by handleSubmit) in sync
   const handleSliderChange = (pos: number) => {
@@ -371,20 +408,31 @@ export default function GamePage() {
     setPhase('guessing')
   }, [])
 
-  // Multiplayer host: advances everyone via Realtime (games.current_round / finished)
+  // Multiplayer host: advances everyone (server bumps games.current_round / finishes).
+  // All clients then converge via Realtime + le polling de réconciliation.
   const advanceHost = useCallback(async () => {
-    if (!playerId) return
+    if (!playerId || advancingRef.current) return // garde anti double-clic (PATCH non atomique)
+    advancingRef.current = true
     try {
-      await fetch(`/api/games/${gameId}/advance`, {
+      const res = await fetch(`/api/games/${gameId}/advance`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerId }),
       })
-      // The games UPDATE Realtime event moves all players (host included)
-    } catch {
-      // ignore — host can retry
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        console.error('advanceHost: échec advance', res.status, data.error)
+      } else {
+        // Réconcilie tout de suite côté hôte (ne dépend pas de son propre événement Realtime)
+        reconcile()
+      }
+    } catch (e) {
+      console.error('advanceHost error', e)
+    } finally {
+      // Libère la garde une fois qu'on a quitté l'écran de révélation
+      setTimeout(() => { advancingRef.current = false }, 500)
     }
-  }, [gameId, playerId])
+  }, [gameId, playerId, reconcile])
 
   // Always call the latest handleSubmit from the timer without re-arming it
   const handleSubmitRef = useRef(handleSubmit)
@@ -409,6 +457,17 @@ export default function GamePage() {
     }, 1000)
     return () => clearInterval(id)
   }, [phase, currentRound, timerSeconds])
+
+  // Anti-blocage : l'hôte peut forcer l'avancement après 12s d'attente
+  // (utile si un joueur a abandonné, surtout avec un minuteur ∞).
+  useEffect(() => {
+    if (phase !== 'waiting_others' || !isHost) {
+      setShowForceAdvance(false)
+      return
+    }
+    const id = setTimeout(() => setShowForceAdvance(true), 12000)
+    return () => clearTimeout(id)
+  }, [phase, isHost, currentRound])
 
   // ─── Loading ───────────────────────────────────────────────────────────────
 
@@ -681,24 +740,40 @@ export default function GamePage() {
                     }}
                   />
                   <p className="text-sm text-muted">{t.game.waitingOthers}</p>
+                  {/* Échappatoire hôte après une longue attente */}
+                  {isHost && showForceAdvance && (
+                    <button
+                      onClick={advanceHost}
+                      className="mt-2 w-full py-2.5 font-bold text-sm text-white uppercase tracking-wider"
+                      style={{ border: '1px solid rgba(255,255,255,0.35)', borderRadius: '6px' }}
+                    >
+                      {t.game.forceNext} →
+                    </button>
+                  )}
                 </div>
-              ) : phase === 'revealing' && result && gameMode === 'multiplayer' ? (
+              ) : phase === 'revealing' && gameMode === 'multiplayer' ? (
                 // Multiplayer reveal stays inline (host paces everyone). Solo uses a modal.
+                // Le score perso peut manquer après un refresh : on n'affiche que
+                // le contrôle d'avancement dans ce cas (jamais d'écran bloqué/vide).
                 <div
                   className="flex flex-col gap-1 p-5 text-center"
                   style={{ backgroundColor: 'rgba(26,26,26,0.9)', borderRadius: '10px', border: '1px solid #222' }}
                 >
-                  <p className="text-xl font-bold">{scoreLabel(result.score, t.game)}</p>
-                  <p className="text-3xl font-bold" style={{ color: '#FF4D2E' }}>
-                    +{formatScore(result.score)} {t.game.points}
-                  </p>
-                  <p className="text-sm text-muted mt-2">
-                    {t.game.actualBudget} :{' '}
-                    <span className="text-white font-semibold">{formatBudget(result.actual_budget)}</span>
-                  </p>
-                  <p className="text-sm text-muted">
-                    {t.game.accuracy} : <span className="text-white">{result.accuracy}%</span>
-                  </p>
+                  {result && (
+                    <>
+                      <p className="text-xl font-bold">{scoreLabel(result.score, t.game)}</p>
+                      <p className="text-3xl font-bold" style={{ color: '#FF4D2E' }}>
+                        +{formatScore(result.score)} {t.game.points}
+                      </p>
+                      <p className="text-sm text-muted mt-2">
+                        {t.game.actualBudget} :{' '}
+                        <span className="text-white font-semibold">{formatBudget(result.actual_budget)}</span>
+                      </p>
+                      <p className="text-sm text-muted">
+                        {t.game.accuracy} : <span className="text-white">{result.accuracy}%</span>
+                      </p>
+                    </>
+                  )}
 
                   {/* Advance control — host only */}
                   {isHost ? (

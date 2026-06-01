@@ -81,9 +81,26 @@ export default function LobbyRoomPage() {
           if (updated.status === 'playing') redirectToGame()
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          console.error(`Realtime: canal lobby-${gameId} → ${status}`)
+        }
+      })
+
+    // Filet de sécurité : si un événement Realtime est perdu, le polling rattrape
+    // (nouveaux joueurs + démarrage de la partie par l'hôte).
+    const poll = setInterval(() => {
+      fetch(`/api/games/${gameId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.game?.status === 'playing') { redirectToGame(); return }
+          if (Array.isArray(data.players)) setPlayers(data.players)
+        })
+        .catch((e) => console.error('lobby poll error', e))
+    }, 3000)
 
     return () => {
+      clearInterval(poll)
       supabase.removeChannel(channel)
     }
   }, [gameId, router, redirectToGame])

@@ -30,6 +30,7 @@ export async function PATCH(
       .eq('game_id', gameId)
       .single() as { data: Pick<PlayerRow, 'is_host'> | null; error: Error | null }
 
+    if (playerResult.error) console.error('Advance: player lookup error', playerResult.error)
     if (!playerResult.data?.is_host) {
       return NextResponse.json({ error: 'Only the host can advance the round' }, { status: 403 })
     }
@@ -48,17 +49,28 @@ export async function PATCH(
     const totalRounds = movie_ids.length
 
     if (current_round >= totalRounds) {
-      await db
+      const { error: finishErr } = await db
         .from('games')
         .update({ status: 'finished', finished_at: new Date().toISOString() })
         .eq('id', gameId)
+      if (finishErr) {
+        console.error('Advance: failed to finish game', finishErr)
+        return NextResponse.json({ error: 'Failed to finish game' }, { status: 500 })
+      }
       return NextResponse.json({ ok: true, finished: true })
     }
 
-    await db
+    // Avance conditionnée à la valeur lue (garde-fou contre une double-avance
+    // concurrente : seul le passage current_round → current_round+1 réussit).
+    const { error: advanceErr } = await db
       .from('games')
       .update({ current_round: current_round + 1 })
       .eq('id', gameId)
+      .eq('current_round', current_round)
+    if (advanceErr) {
+      console.error('Advance: failed to bump current_round', advanceErr)
+      return NextResponse.json({ error: 'Failed to advance round' }, { status: 500 })
+    }
 
     return NextResponse.json({ ok: true, current_round: current_round + 1 })
   } catch (err) {

@@ -91,10 +91,16 @@ export async function POST(
       .eq('id', player_id)
       .single() as { data: Pick<PlayerRow, 'total_score'> | null; error: Error | null }
 
-    await db
+    if (playerResult.error) console.error('Guess: player score lookup error', playerResult.error)
+
+    const { error: scoreErr } = await db
       .from('players')
       .update({ total_score: (playerResult.data?.total_score ?? 0) + score })
       .eq('id', player_id)
+    if (scoreErr) {
+      // Le round est déjà enregistré ; on log mais on ne casse pas la révélation.
+      console.error('Guess: failed to update total_score', scoreErr)
+    }
 
     // Note: the round is NOT auto-advanced here. Advancing is driven explicitly —
     // by the player (solo) or the host (multiplayer) via /api/games/[gameId]/advance.

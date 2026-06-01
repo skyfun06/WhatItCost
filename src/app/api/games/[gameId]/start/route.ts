@@ -27,14 +27,19 @@ export async function PATCH(
       .eq('game_id', gameId)
       .single() as { data: Pick<PlayerRow, 'is_host'> | null; error: Error | null }
 
+    if (playerResult.error) console.error('Start: player lookup error', playerResult.error)
     if (!playerResult.data?.is_host) {
       return NextResponse.json({ error: 'Only the host can start the game' }, { status: 403 })
     }
 
-    await db
+    const { error: updateErr } = await db
       .from('games')
       .update({ status: 'playing', current_round: 1 })
       .eq('id', gameId)
+    if (updateErr) {
+      console.error('Start: failed to set status=playing', updateErr)
+      return NextResponse.json({ error: 'Failed to start game' }, { status: 500 })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
