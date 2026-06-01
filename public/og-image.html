@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WhatItCost — OG image</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #000; }
+
+    /* La carte fait EXACTEMENT 1200x630 — cadre ta capture dessus. */
+    .card {
+      position: relative;
+      width: 1200px;
+      height: 630px;
+      background: #111111;
+      overflow: hidden;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Motif $ ? subtil en diagonale, derrière le contenu */
+    .pattern {
+      position: absolute;
+      inset: -20%;
+      transform: rotate(-20deg);
+      display: flex;
+      flex-direction: column;
+      gap: 54px;
+      pointer-events: none;
+    }
+    .pattern .row {
+      white-space: nowrap;
+      font-size: 64px;
+      font-weight: 700;
+      letter-spacing: 64px;
+      color: #ffffff;
+      opacity: 0.04;
+      line-height: 1;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .title {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 150px;
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      color: #ffffff;
+      text-transform: uppercase;
+    }
+    .title .q { color: #FF4D2E; }
+
+    .subtitle {
+      margin-top: 28px;
+      font-size: 34px;
+      font-weight: 500;
+      color: #888888;
+      letter-spacing: 0.01em;
+    }
+
+    .tag {
+      margin-top: 36px;
+      display: inline-block;
+      font-size: 20px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: rgba(255, 255, 255, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 100px;
+      padding: 10px 26px;
+    }
+
+    /* Barre d'accent corail en bas */
+    .accent {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 14px;
+      background: #FF4D2E;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- Motif de fond -->
+    <div class="pattern">
+      <!-- 10 lignes de "$ ?" répétés -->
+      <div class="row">$ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ?</div>
+      <div class="row">? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $</div>
+      <div class="row">$ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ?</div>
+      <div class="row">? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $</div>
+      <div class="row">$ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ?</div>
+      <div class="row">? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $</div>
+      <div class="row">$ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ?</div>
+      <div class="row">? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $</div>
+      <div class="row">$ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ?</div>
+      <div class="row">? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $ ? $</div>
+    </div>
+
+    <!-- Contenu -->
+    <div class="content">
+      <div class="title">WHATIT<br />COST<span class="q">?</span></div>
+      <div class="subtitle">Guess the movie budget.</div>
+      <div class="tag">A Movie Budget Game</div>
+    </div>
+
+    <!-- Accent corail -->
+    <div class="accent"></div>
+  </div>
+</body>
+</html>

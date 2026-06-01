@@ -75,6 +75,9 @@ export const en = {
     outOf: 'of',
     playAgain: 'Play again',
     backHome: 'Home',
+    share: 'Share my score',
+    shareText: 'I scored {score} pts on WhatItCost! Can you beat me?',
+    linkCopied: 'Link copied!',
     scoreLabels: {
       perfect: 'Perfect!',
       great: 'So close!',

@@ -25,9 +25,24 @@ export const metadata: Metadata = {
     'google-adsense-account': 'ca-pub-5977412568098329',
   },
   openGraph: {
-    title: 'WhatItCost',
-    description: 'Guess the production budget of iconic movies.',
+    title: 'WhatItCost?',
+    description: 'Guess the production budget of iconic movies. Can you beat 15,000 pts?',
+    url: 'https://whatitcost.fr',
+    siteName: 'WhatItCost',
+    images: [
+      {
+        url: 'https://whatitcost.fr/og-image.png',
+        width: 1200,
+        height: 630,
+      },
+    ],
     type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'WhatItCost?',
+    description: 'Guess the production budget of iconic movies.',
+    images: ['https://whatitcost.fr/og-image.png'],
   },
 }
 

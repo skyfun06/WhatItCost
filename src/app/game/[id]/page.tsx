@@ -156,6 +156,8 @@ export default function GamePage() {
   const [showForceAdvance, setShowForceAdvance] = useState(false)
   // Indice (tous joueurs) après une longue attente : suggère de rafraîchir.
   const [showStuckHint, setShowStuckHint] = useState(false)
+  // Toast éphémère (ex : "Lien copié !") sur l'écran final
+  const [toast, setToast] = useState<string | null>(null)
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -436,6 +438,28 @@ export default function GamePage() {
     }
   }, [gameId, playerId, reconcile])
 
+  // Partage du score final : Web Share API si dispo, sinon copie + toast.
+  const handleShare = useCallback(async () => {
+    const text = t.game.shareText.replace('{score}', formatScore(totalScore))
+    const url = 'https://whatitcost.fr'
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'WhatItCost?', text, url })
+      } catch {
+        // partage annulé par l'utilisateur — rien à faire
+      }
+      return
+    }
+    // Fallback : copie dans le presse-papier + toast 2s
+    try {
+      await navigator.clipboard.writeText(`${text} ${url}`)
+      setToast(t.game.linkCopied)
+      setTimeout(() => setToast(null), 2000)
+    } catch (e) {
+      console.error('share: clipboard fallback failed', e)
+    }
+  }, [t, totalScore])
+
   // Always call the latest handleSubmit from the timer without re-arming it
   const handleSubmitRef = useRef(handleSubmit)
   useEffect(() => { handleSubmitRef.current = handleSubmit }, [handleSubmit])
@@ -588,6 +612,13 @@ export default function GamePage() {
               {t.game.playAgain}
             </button>
             <button
+              onClick={handleShare}
+              className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
+              style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
+            >
+              {t.game.share}
+            </button>
+            <button
               onClick={() => router.push('/')}
               className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
               style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
@@ -595,6 +626,22 @@ export default function GamePage() {
               {t.game.backHome}
             </button>
           </div>
+
+          {/* Toast éphémère (fallback de partage : "Lien copié !") */}
+          {toast && (
+            <div
+              className="fixed left-1/2 -translate-x-1/2 z-[120] text-sm font-semibold"
+              style={{
+                bottom: '88px',
+                backgroundColor: '#1a1a1a',
+                border: '1px solid #333',
+                borderRadius: '8px',
+                padding: '10px 18px',
+              }}
+            >
+              {toast}
+            </div>
+          )}
         </div>
       </AnimatedBackground>
     )
