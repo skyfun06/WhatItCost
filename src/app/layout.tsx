@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Space_Grotesk } from 'next/font/google'
 import { LocaleProvider } from '@/contexts/LocaleContext'
 import LanguageToggle from '@/components/LanguageToggle'
+import CoffeeBanner from '@/components/CoffeeBanner'
 import './globals.css'
 
 // next/font charge la police en build time, sans requête client vers Google Fonts
@@ -18,6 +20,7 @@ export const metadata: Metadata = {
     template: '%s — WhatItCost',
   },
   description: 'Devine le budget de production de tes films préférés.',
+  icons: { icon: '/logo.png', apple: '/logo.png' },
   openGraph: {
     title: 'WhatItCost',
     description: 'Guess the production budget of iconic movies.',
@@ -36,9 +39,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           sans prop drilling ni rechargement de page.
         */}
         <LocaleProvider>
-          {/* Sélecteur de langue global — visible sur toutes les pages */}
+          {/* Logo cliquable, fixé en haut à gauche de chaque page */}
+          <Link
+            href="/"
+            aria-label="WhatItCost"
+            className="fixed top-0 left-0 z-50"
+            style={{ padding: '12px 16px' }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="WhatItCost" style={{ height: '32px', width: 'auto' }} />
+          </Link>
+
+          {/* Sélecteur de langue global — en haut à droite */}
           <LanguageToggle />
+
           {children}
+
+          {/* Bannière de soutien — fixée en bas, masquable */}
+          <CoffeeBanner />
         </LocaleProvider>
       </body>
     </html>

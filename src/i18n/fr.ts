@@ -10,6 +10,11 @@ export const fr = {
     leaderboard: 'Classement',
     language: 'EN', // Label du bouton — affiche la langue VERS laquelle basculer
   },
+  coffee: {
+    text: '☕ Tu aimes WhatItCost ? Soutiens le projet !',
+    button: 'Offre-moi un café',
+    dismiss: 'Fermer',
+  },
   home: {
     tag: 'Un jeu de budget de films',
     playSolo: 'Jouer solo',

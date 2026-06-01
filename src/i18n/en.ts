@@ -10,6 +10,11 @@ export const en = {
     leaderboard: 'Leaderboard',
     language: 'FR',
   },
+  coffee: {
+    text: '☕ Enjoying WhatItCost? Support the project!',
+    button: 'Buy me a coffee',
+    dismiss: 'Dismiss',
+  },
   home: {
     tag: 'A Movie Budget Game',
     playSolo: 'Play Solo',

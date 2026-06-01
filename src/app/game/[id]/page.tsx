@@ -566,7 +566,7 @@ export default function GamePage() {
         {/* ─── Full-width transparent navbar ──────────────────────────────
             pr élargi à droite pour ne pas passer sous le sélecteur de langue global. */}
         <nav
-          className="absolute top-0 left-0 right-0 z-40 flex justify-between items-center text-[0.7rem] sm:text-xs uppercase tracking-widest text-white/70 pl-4 pr-16 pt-6 pb-3 sm:pl-6 sm:pr-24 sm:pt-7"
+          className="absolute top-0 left-0 right-0 z-40 flex justify-between items-center text-[0.7rem] sm:text-xs uppercase tracking-widest text-white/70 pl-16 pr-16 pt-6 pb-3 sm:pl-20 sm:pr-24 sm:pt-7"
         >
           <span>{t.game.round} {currentRound}/{roundCount}</span>
 
