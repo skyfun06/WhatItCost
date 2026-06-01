@@ -68,6 +68,8 @@ export const en = {
     waitingHost: 'Waiting for the host…',
     forceNext: 'Force next round',
     stuckHint: 'This is taking a while… Connection issue? Refresh the page.',
+    loadTimeout: 'Could not load the game. Go back to the lobby and try again.',
+    backToLobby: 'Back to lobby',
     nextMovie: 'Next movie',
     nextRound: 'Next round',
     seeResults: 'See results',

@@ -68,6 +68,8 @@ export const fr = {
     waitingHost: 'En attente de l\'hôte…',
     forceNext: 'Forcer le round suivant',
     stuckHint: 'La partie prend du temps… Problème de connexion ? Rafraîchis la page.',
+    loadTimeout: 'Impossible de charger la partie. Retourne au lobby et réessaie.',
+    backToLobby: 'Retour au lobby',
     nextMovie: 'Film suivant',
     nextRound: 'Round suivant',
     seeResults: 'Voir les résultats',

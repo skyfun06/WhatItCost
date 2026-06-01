@@ -30,6 +30,7 @@ export default function LobbyRoomPage() {
 
   // Stable redirect handler to use inside Realtime callback
   const redirectToGame = useCallback(() => {
+    console.log(`[WIC] lobby: redirection → /game/${gameId}`)
     router.replace(`/game/${gameId}`)
   }, [gameId, router])
 
@@ -107,6 +108,7 @@ export default function LobbyRoomPage() {
 
   async function handleStart() {
     if (!playerId) return
+    console.log(`[WIC] lobby: clic "Démarrer" (playerId=${playerId}, gameId=${gameId})`)
     setStarting(true)
     try {
       const res = await fetch(`/api/games/${gameId}/start`, {
@@ -114,13 +116,20 @@ export default function LobbyRoomPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerId }),
       })
+      console.log(`[WIC] lobby: PATCH /start → ${res.status}`)
       if (!res.ok) {
         const data = await res.json()
+        console.error('[WIC] lobby: start a échoué', data)
         setError(data.error)
         setStarting(false)
+        return
       }
-      // Redirect will happen via Realtime UPDATE
-    } catch {
+      // Filet : la redirection passe normalement par l'événement Realtime
+      // games UPDATE, mais on redirige aussi directement au cas où il serait perdu.
+      console.log('[WIC] lobby: start OK → redirection directe')
+      redirectToGame()
+    } catch (e) {
+      console.error('[WIC] lobby: erreur réseau au start', e)
       setError(t.lobby.startError)
       setStarting(false)
     }

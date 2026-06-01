@@ -13,6 +13,7 @@ export async function PATCH(
   try {
     const { playerId } = await request.json()
     const { gameId } = params
+    console.log(`[WIC] /start: gameId=${gameId}, playerId=${playerId}`)
 
     if (!playerId) {
       return NextResponse.json({ error: 'playerId required' }, { status: 400 })
@@ -27,8 +28,9 @@ export async function PATCH(
       .eq('game_id', gameId)
       .single() as { data: Pick<PlayerRow, 'is_host'> | null; error: Error | null }
 
-    if (playerResult.error) console.error('Start: player lookup error', playerResult.error)
+    if (playerResult.error) console.error('[WIC] /start: player lookup error', playerResult.error)
     if (!playerResult.data?.is_host) {
+      console.error('[WIC] /start: non-host ou joueur introuvable → 403')
       return NextResponse.json({ error: 'Only the host can start the game' }, { status: 403 })
     }
 
@@ -37,10 +39,11 @@ export async function PATCH(
       .update({ status: 'playing', current_round: 1 })
       .eq('id', gameId)
     if (updateErr) {
-      console.error('Start: failed to set status=playing', updateErr)
+      console.error('[WIC] /start: échec update status=playing', updateErr)
       return NextResponse.json({ error: 'Failed to start game' }, { status: 500 })
     }
 
+    console.log(`[WIC] /start: OK — game ${gameId} status=playing, current_round=1`)
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('Start game error:', err)

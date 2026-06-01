@@ -163,6 +163,8 @@ export default function GamePage() {
   const [previewScale, setPreviewScale] = useState(1)
   // Carte-score (rendue dans le modal) capturée par html2canvas
   const scoreCardRef = useRef<HTMLDivElement>(null)
+  // Échec de chargement (timeout 8s) → écran d'erreur avec retour au lobby
+  const [loadError, setLoadError] = useState(false)
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -188,23 +190,26 @@ export default function GamePage() {
   const reconcile = useCallback(async () => {
     if (phaseRef.current === 'finished') return
     try {
+      console.log(`[WIC] reconcile: GET /api/games/${gameId} (phase=${phaseRef.current}, ref=${currentRoundRef.current})`)
       const res = await fetch(`/api/games/${gameId}`)
       if (!res.ok) {
-        console.error(`reconcile: GET /api/games/${gameId} → ${res.status}`)
+        console.error(`[WIC] reconcile: GET /api/games/${gameId} → ${res.status}`)
         return
       }
       const data = await res.json()
       const game = data.game
       if (!game) {
-        console.error('reconcile: réponse sans game', data)
+        console.error('[WIC] reconcile: réponse sans game', data)
         return
       }
+      console.log(`[WIC] reconcile: status=${game.status}, current_round=${game.current_round}, players=${data.players?.length ?? '?'}`)
 
       // Le minuteur est porté par la partie (défini par l'hôte)
       setTimerSeconds(game.timer_seconds ?? DEFAULT_TIMER_SECONDS)
 
       // 1) Partie terminée → écran final avec scores serveur
       if (game.status === 'finished') {
+        console.log('[WIC] reconcile: → finished')
         setAllPlayers(data.players ?? [])
         setPhase('finished')
         return
@@ -212,8 +217,9 @@ export default function GamePage() {
 
       const serverRound: number = game.current_round ?? 1
 
-      // 2) Nouveau round (rattrape un événement games UPDATE manqué)
+      // 2) Round serveur en avance → nouveau round (rattrape un UPDATE manqué / refresh)
       if (serverRound > currentRoundRef.current) {
+        console.log(`[WIC] reconcile: → guessing (advance to round ${serverRound})`)
         setCurrentRound(serverRound)
         setGuessMillions('')
         setRoundResult(null)
@@ -234,23 +240,40 @@ export default function GamePage() {
               .eq('game_id', gameId).eq('round_number', serverRound).eq('player_id', playerIdRef.current)
           : Promise.resolve({ count: 0, error: null }),
       ])
-      if (roundsRes.error) console.error('reconcile: comptage rounds', roundsRes.error)
-      if (playersRes.error) console.error('reconcile: comptage players', playersRes.error)
-      if (mineRes.error) console.error('reconcile: comptage round perso', mineRes.error)
+      if (roundsRes.error) console.error('[WIC] reconcile: comptage rounds', roundsRes.error)
+      if (playersRes.error) console.error('[WIC] reconcile: comptage players', playersRes.error)
+      if (mineRes.error) console.error('[WIC] reconcile: comptage round perso', mineRes.error)
 
       const answered = roundsRes.count ?? 0
       const totalPlayers = playersRes.count ?? 0
       const iAnswered = (mineRes.count ?? 0) > 0
+      console.log(`[WIC] reconcile: round ${serverRound} → answered=${answered}/${totalPlayers}, iAnswered=${iAnswered}`)
 
       if (totalPlayers > 0 && answered >= totalPlayers) {
         // Tout le monde a répondu (donc nous aussi) → révélation pour tous
-        if (phaseRef.current !== 'revealing') setPhase('revealing')
-      } else if (iAnswered && phaseRef.current === 'guessing') {
-        // On a déjà répondu (ex : après un refresh) mais pas les autres → attente
-        setPhase('waiting_others')
+        if (phaseRef.current !== 'revealing') {
+          console.log('[WIC] reconcile: → revealing (all answered)')
+          setPhase('revealing')
+        }
+      } else if (iAnswered) {
+        // On a déjà répondu, en attente des autres (gère aussi le retour après refresh)
+        if (phaseRef.current === 'guessing' || phaseRef.current === 'loading') {
+          console.log('[WIC] reconcile: → waiting_others (we answered)')
+          setCurrentRound(serverRound)
+          setPhase('waiting_others')
+        }
+      } else {
+        // On n'a pas encore répondu ce round → écran de jeu.
+        // CRITIQUE : couvre le démarrage de partie (round 1) où la phase est encore
+        // 'loading' et serverRound == ref, donc le test (2) ne déclenche pas.
+        if (phaseRef.current === 'loading') {
+          console.log('[WIC] reconcile: → guessing (initial load, round ' + serverRound + ')')
+          setCurrentRound(serverRound)
+          setPhase('guessing')
+        }
       }
     } catch (e) {
-      console.error('reconcile error', e)
+      console.error('[WIC] reconcile error', e)
     }
   }, [gameId])
 
@@ -260,12 +283,16 @@ export default function GamePage() {
     const storedMovies = localStorage.getItem('wic_movies')
     const storedMode = (localStorage.getItem('wic_game_mode') ?? 'solo') as 'solo' | 'multiplayer'
 
+    console.log(`[WIC] game mount: gameId=${gameId}, storedGameId=${storedGameId}, hasPlayer=${!!storedPlayerId}, hasMovies=${!!storedMovies}, mode=${storedMode}`)
+
     if (storedGameId !== gameId || !storedPlayerId || !storedMovies) {
+      console.error('[WIC] game mount: localStorage manquant/incohérent → redirection /game')
       router.replace('/game')
       return
     }
 
     const parsedMovies: GameMovie[] = JSON.parse(storedMovies)
+    console.log(`[WIC] game mount: ${parsedMovies.length} films chargés, isHost=${localStorage.getItem('wic_is_host')}`)
     setPlayerId(storedPlayerId)
     setMovies(parsedMovies)
     setGameMode(storedMode)
@@ -274,6 +301,15 @@ export default function GamePage() {
     roundCountRef.current = parsedMovies.length || DEFAULT_ROUND_COUNT
 
     if (storedMode === 'multiplayer') {
+      console.log('[WIC] game mount: multijoueur → reconcile + Realtime + polling')
+      // Filet anti-blocage : si toujours en "loading" après 8s, écran d'erreur.
+      const loadTimer = setTimeout(() => {
+        if (phaseRef.current === 'loading') {
+          console.error('[WIC] game mount: timeout 8s, toujours en loading → écran d\'erreur')
+          setLoadError(true)
+        }
+      }, 8000)
+
       // Synchro initiale (gère aussi la reprise après refresh : reconcile lit
       // l'état serveur et place la bonne phase, y compris round déjà avancé).
       reconcile()
@@ -305,6 +341,7 @@ export default function GamePage() {
       const poll = setInterval(reconcile, 3000)
 
       return () => {
+        clearTimeout(loadTimer)
         clearInterval(poll)
         supabase.removeChannel(channel)
       }
@@ -559,6 +596,23 @@ export default function GamePage() {
   // ─── Loading ───────────────────────────────────────────────────────────────
 
   if (phase === 'loading') {
+    if (loadError) {
+      return (
+        <AnimatedBackground
+          className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 text-center text-white"
+          style={{ backgroundColor: '#111111' }}
+        >
+          <p className="text-sm" style={{ color: '#888', maxWidth: '340px' }}>{t.game.loadTimeout}</p>
+          <button
+            onClick={() => router.push('/lobby')}
+            className="min-h-[44px] px-6 py-3 font-bold text-sm text-white uppercase tracking-wider"
+            style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+          >
+            {t.game.backToLobby}
+          </button>
+        </AnimatedBackground>
+      )
+    }
     return (
       <div className="min-h-screen flex items-center justify-center text-muted text-sm" style={{ backgroundColor: '#111111' }}>
         {t.common.loading}
