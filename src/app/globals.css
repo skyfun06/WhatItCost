@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Scrollbar personnalisée — cohérente avec la palette */
+::-webkit-scrollbar        { width: 6px; }
+::-webkit-scrollbar-track  { background: #16161e; }
+::-webkit-scrollbar-thumb  { background: #ff5c3a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #ff8c42; }
+
+/* Sélection de texte */
+::selection { background-color: #ff5c3a33; color: #fff; }
+
+@layer base {
+  html { scroll-behavior: smooth; }
+}
+
+@layer utilities {
+  /* Classe utilitaire pour le dégradé de texte signature */
+  .text-brand {
+    @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+}
