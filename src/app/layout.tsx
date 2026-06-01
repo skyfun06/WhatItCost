@@ -31,9 +31,9 @@ export const metadata: Metadata = {
     siteName: 'WhatItCost',
     images: [
       {
-        url: 'https://whatitcost.fr/og-image.png',
-        width: 1200,
-        height: 630,
+        url: 'https://whatitcost.fr/logo.png',
+        width: 512,
+        height: 512,
       },
     ],
     type: 'website',
@@ -50,6 +50,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // lang défini ici ; le hook useTranslation le met à jour dynamiquement via <html lang>
     <html lang="fr" className={spaceGrotesk.variable}>
+      <head>
+        {/* og:image explicite (en plus des métadonnées Next) pour les scrapers stricts */}
+        <meta property="og:image" content="https://whatitcost.fr/logo.png" />
+        <meta property="og:image:width" content="512" />
+        <meta property="og:image:height" content="512" />
+      </head>
       <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden">
         {/*
           LocaleProvider est un Client Component qui wrap toute l'app.

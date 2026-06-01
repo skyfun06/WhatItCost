@@ -158,6 +158,8 @@ export default function GamePage() {
   const [showStuckHint, setShowStuckHint] = useState(false)
   // Toast éphémère (ex : "Lien copié !") sur l'écran final
   const [toast, setToast] = useState<string | null>(null)
+  // Carte-score hors écran capturée par html2canvas au partage
+  const scoreCardRef = useRef<HTMLDivElement>(null)
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -438,25 +440,61 @@ export default function GamePage() {
     }
   }, [gameId, playerId, reconcile])
 
-  // Partage du score final : Web Share API si dispo, sinon copie + toast.
+  // Partage du score : capture la carte-score en image (html2canvas), puis
+  // partage natif du fichier si supporté, sinon téléchargement + toast.
   const handleShare = useCallback(async () => {
-    const text = t.game.shareText.replace('{score}', formatScore(totalScore))
-    const url = 'https://whatitcost.fr'
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title: 'WhatItCost?', text, url })
-      } catch {
-        // partage annulé par l'utilisateur — rien à faire
-      }
-      return
-    }
-    // Fallback : copie dans le presse-papier + toast 2s
+    const node = scoreCardRef.current
+    if (!node) return
     try {
-      await navigator.clipboard.writeText(`${text} ${url}`)
-      setToast(t.game.linkCopied)
-      setTimeout(() => setToast(null), 2000)
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(node, {
+        backgroundColor: '#111111',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      })
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob(resolve, 'image/png'),
+      )
+      if (!blob) {
+        console.error('share: html2canvas toBlob a renvoyé null')
+        return
+      }
+      const file = new File([blob], 'mon-score-whatitcost.png', { type: 'image/png' })
+
+      // Partage natif du fichier (mobile surtout) si supporté
+      const canShareFiles =
+        typeof navigator !== 'undefined' &&
+        typeof navigator.canShare === 'function' &&
+        navigator.canShare({ files: [file] }) &&
+        typeof navigator.share === 'function'
+
+      if (canShareFiles) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'WhatItCost?',
+            text: t.game.shareText.replace('{score}', formatScore(totalScore)),
+          })
+        } catch {
+          // partage annulé par l'utilisateur — rien à faire
+        }
+        return
+      }
+
+      // Fallback : téléchargement du PNG + toast
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'mon-score-whatitcost.png'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setToast(t.game.imageDownloaded)
+      setTimeout(() => setToast(null), 2500)
     } catch (e) {
-      console.error('share: clipboard fallback failed', e)
+      console.error('share: échec de génération de la carte-score', e)
     }
   }, [t, totalScore])
 
@@ -642,6 +680,99 @@ export default function GamePage() {
               {toast}
             </div>
           )}
+        </div>
+
+        {/* ─── Carte-score hors écran (capturée par html2canvas au partage) ───
+            position fixed à -9999px : présente dans le DOM mais invisible. */}
+        <div
+          ref={scoreCardRef}
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            left: '-9999px',
+            top: 0,
+            width: '800px',
+            height: '450px',
+            backgroundColor: '#111111',
+            color: '#ffffff',
+            overflow: 'hidden',
+          }}
+        >
+          {/* Motif $ ? statique en diagonale */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: '-20%',
+              transform: 'rotate(-20deg)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '38px',
+              pointerEvents: 'none',
+            }}
+          >
+            {Array.from({ length: 9 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  whiteSpace: 'nowrap',
+                  fontSize: '46px',
+                  fontWeight: 700,
+                  letterSpacing: '46px',
+                  color: '#ffffff',
+                  opacity: 0.05,
+                  lineHeight: 1,
+                }}
+              >
+                {i % 2 === 0 ? '$ ? $ ? $ ? $ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ? $ ? $ ? $ ? $'}
+              </div>
+            ))}
+          </div>
+
+          {/* Contenu */}
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 1,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '30px 44px 30px',
+            }}
+          >
+            <p style={{ color: '#FF4D2E', fontSize: '15px', fontWeight: 700, letterSpacing: '0.28em', textTransform: 'uppercase' }}>
+              WHATITCOST.FR
+            </p>
+
+            <p style={{ fontSize: '5rem', fontWeight: 700, lineHeight: 1, marginTop: '8px' }}>
+              {formatScore(totalScore)}
+              <span style={{ fontSize: '2rem', marginLeft: '8px', color: 'rgba(255,255,255,0.7)' }}>PTS</span>
+            </p>
+
+            <p style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '4px' }}>
+              {performanceLabel(pct, t.game)} 🎬
+            </p>
+
+            {/* Détail par round */}
+            <div style={{ marginTop: '16px', width: '100%', maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              {scores.map((s, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#888888' }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
+                    {movies[i]?.title ?? `${t.game.round} ${i + 1}`}
+                  </span>
+                  <span style={{ color: '#cccccc', fontWeight: 600, marginLeft: '12px', whiteSpace: 'nowrap' }}>
+                    {formatScore(s)} {t.game.points}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bas : texte + barre d'accent corail */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+            <p style={{ textAlign: 'center', fontSize: '14px', color: '#ffffff', marginBottom: '12px' }}>whatitcost.fr</p>
+            <div style={{ height: '8px', backgroundColor: '#FF4D2E' }} />
+          </div>
         </div>
       </AnimatedBackground>
     )

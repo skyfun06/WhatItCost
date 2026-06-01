@@ -78,6 +78,7 @@ export const en = {
     share: 'Share my score',
     shareText: 'I scored {score} pts on WhatItCost! Can you beat me?',
     linkCopied: 'Link copied!',
+    imageDownloaded: 'Image downloaded! Share it on your socials 🎬',
     scoreLabels: {
       perfect: 'Perfect!',
       great: 'So close!',
