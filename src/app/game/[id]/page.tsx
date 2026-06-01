@@ -154,6 +154,8 @@ export default function GamePage() {
   // Échappatoire hôte : si l'attente s'éternise (joueur parti, minuteur ∞),
   // l'hôte peut forcer le round suivant pour ne jamais rester bloqué.
   const [showForceAdvance, setShowForceAdvance] = useState(false)
+  // Indice (tous joueurs) après une longue attente : suggère de rafraîchir.
+  const [showStuckHint, setShowStuckHint] = useState(false)
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -469,6 +471,16 @@ export default function GamePage() {
     return () => clearTimeout(id)
   }, [phase, isHost, currentRound])
 
+  // Indice de connexion après 45s bloqué en attente (sans progression de round).
+  useEffect(() => {
+    if (phase !== 'waiting_others') {
+      setShowStuckHint(false)
+      return
+    }
+    const id = setTimeout(() => setShowStuckHint(true), 45000)
+    return () => clearTimeout(id)
+  }, [phase, currentRound])
+
   // ─── Loading ───────────────────────────────────────────────────────────────
 
   if (phase === 'loading') {
@@ -749,6 +761,12 @@ export default function GamePage() {
                     >
                       {t.game.forceNext} →
                     </button>
+                  )}
+                  {/* Indice de connexion après 45s d'attente */}
+                  {showStuckHint && (
+                    <p className="mt-1 text-xs leading-relaxed" style={{ color: '#666' }}>
+                      {t.game.stuckHint}
+                    </p>
                   )}
                 </div>
               ) : phase === 'revealing' && gameMode === 'multiplayer' ? (

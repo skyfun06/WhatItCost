@@ -67,6 +67,7 @@ export const fr = {
     waitingOthers: 'En attente des autres joueurs…',
     waitingHost: 'En attente de l\'hôte…',
     forceNext: 'Forcer le round suivant',
+    stuckHint: 'La partie prend du temps… Problème de connexion ? Rafraîchis la page.',
     nextMovie: 'Film suivant',
     nextRound: 'Round suivant',
     seeResults: 'Voir les résultats',
