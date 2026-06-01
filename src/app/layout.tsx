@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Script from 'next/script'
 import { Space_Grotesk } from 'next/font/google'
 import { LocaleProvider } from '@/contexts/LocaleContext'
 import LanguageToggle from '@/components/LanguageToggle'
@@ -32,6 +33,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // lang défini ici ; le hook useTranslation le met à jour dynamiquement via <html lang>
     <html lang="fr" className={spaceGrotesk.variable}>
+      <head>
+        {/* Vérification / chargement Google AdSense */}
+        <Script
+          id="google-adsense"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5977412568098329"
+          crossOrigin="anonymous"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden">
         {/*
           LocaleProvider est un Client Component qui wrap toute l'app.
