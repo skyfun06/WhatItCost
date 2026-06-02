@@ -110,6 +110,7 @@ function SettingsContent() {
             <Toggle
               value={genre}
               onChange={setGenre}
+              wrap
               options={GENRE_KEYS.map((key) => ({ value: key, label: t.settings.genres[key] }))}
             />
           </Section>

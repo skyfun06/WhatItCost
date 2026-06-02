@@ -10,7 +10,7 @@ export const TIMER_OPTIONS = [
 ] as const
 
 export const DIFFICULTY_KEYS = ['all', 'popular', 'recent', 'classics'] as const
-export const GENRE_KEYS = ['all', 'action', 'drama', 'comedy', 'horror', 'scifi'] as const
+export const GENRE_KEYS = ['all', 'action', 'drama', 'comedy', 'horror', 'scifi', 'romance'] as const
 export const GAME_MODE_KEYS = ['budget_guess', 'higher_or_lower'] as const
 
 export type Difficulty = (typeof DIFFICULTY_KEYS)[number]

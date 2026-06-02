@@ -58,6 +58,7 @@ export const fr = {
       comedy: 'Comédie',
       horror: 'Horreur',
       scifi: 'Sci-Fi',
+      romance: 'Romance',
     },
   },
   game: {

@@ -241,7 +241,7 @@ export default function LobbyRoomPage() {
                 options={DIFFICULTY_KEYS.map((k) => ({ value: k, label: t.settings.difficulties[k] }))} />
             </Field>
             <Field label={t.settings.genre}>
-              <Toggle value={settings.genre} disabled={!isHost} onChange={(v) => changeSetting('genre', v)}
+              <Toggle value={settings.genre} disabled={!isHost} wrap onChange={(v) => changeSetting('genre', v)}
                 options={GENRE_KEYS.map((k) => ({ value: k, label: t.settings.genres[k] }))} />
             </Field>
           </div>

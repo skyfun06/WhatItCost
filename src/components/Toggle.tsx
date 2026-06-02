@@ -17,14 +17,51 @@ export default function Toggle<T extends string | number>({
   value,
   onChange,
   disabled = false,
+  wrap = false,
 }: {
   options: ToggleOption<T>[]
   value: T
   onChange: (v: T) => void
   disabled?: boolean
+  /** Pills qui passent à la ligne (sans indicateur glissant) — pour beaucoup d'options. */
+  wrap?: boolean
 }) {
   const count = options.length
   const index = Math.max(0, options.findIndex((o) => o.value === value))
+
+  // ── Variante "wrap" : pills sur plusieurs lignes ──
+  if (wrap) {
+    return (
+      <div className="flex flex-wrap gap-2" style={{ opacity: disabled ? 0.55 : 1 }}>
+        {options.map((opt) => {
+          const selected = opt.value === value
+          return (
+            <button
+              key={String(opt.value)}
+              type="button"
+              aria-pressed={selected}
+              disabled={disabled}
+              onClick={() => !disabled && onChange(opt.value)}
+              style={{
+                padding: '8px 16px',
+                fontSize: '0.85rem',
+                borderRadius: '999px',
+                color: selected ? '#ffffff' : '#888888',
+                fontWeight: selected ? 700 : 400,
+                backgroundColor: selected ? '#FF4D2E' : '#111111',
+                border: `1px solid ${selected ? '#FF4D2E' : '#333333'}`,
+                cursor: disabled ? 'default' : 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div

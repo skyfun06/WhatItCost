@@ -12,6 +12,7 @@ const TMDB_GENRE_IDS: Record<string, number> = {
   comedy: 35,
   horror: 27,
   scifi: 878,
+  romance: 10749,
 }
 
 export type Difficulty = 'all' | 'popular' | 'recent' | 'classics'
