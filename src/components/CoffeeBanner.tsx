@@ -8,18 +8,21 @@ const COFFEE_URL = 'https://buymeacoffee.com/borrel'
 
 /**
  * Bannière "Buy me a coffee" fixée en bas de page, full width.
- * Masquable (préférence persistée en localStorage). Tant qu'elle est visible,
- * elle réserve 60px de padding en bas du <body> pour ne rien masquer.
+ * Masquable pour la session en cours (sessionStorage) — réapparaît au prochain
+ * lancement du site. Tant qu'elle est visible, elle réserve 60px de padding
+ * en bas du <body> pour ne rien masquer.
  */
 export default function CoffeeBanner() {
   const { t } = useTranslation()
-  // On part masqué pour éviter tout flash avant lecture du localStorage (SSR → fr par défaut)
+  // On part masqué pour éviter tout flash avant la lecture du sessionStorage côté client
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     let dismissed = false
     try {
-      dismissed = localStorage.getItem(STORAGE_KEY) === 'true'
+      // sessionStorage : masqué pour la session en cours uniquement.
+      // Au relancement du site (nouvelle session), la bannière réapparaît.
+      dismissed = sessionStorage.getItem(STORAGE_KEY) === 'true'
     } catch {
       // ignore
     }
@@ -37,7 +40,8 @@ export default function CoffeeBanner() {
   function dismiss() {
     setVisible(false)
     try {
-      localStorage.setItem(STORAGE_KEY, 'true')
+      // Effacé automatiquement à la fermeture de l'onglet/navigateur → réapparaît au prochain lancement
+      sessionStorage.setItem(STORAGE_KEY, 'true')
     } catch {
       // ignore
     }
