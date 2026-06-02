@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from '@/hooks/useTranslation'
 
 const STORAGE_KEY = 'coffee_banner_dismissed'
-const COFFEE_URL = '#' // placeholder — à remplacer par le vrai lien Buy Me a Coffee
+const COFFEE_URL = 'https://buymeacoffee.com/borrel'
 
 /**
  * Bannière "Buy me a coffee" fixée en bas de page, full width.
