@@ -81,6 +81,7 @@ export const fr = {
     accuracy: 'Précision',
     waitingOthers: 'En attente des autres joueurs…',
     waitingHost: 'En attente de l\'hôte…',
+    roundScores: 'Scores du round',
     forceNext: 'Forcer le round suivant',
     stuckHint: 'La partie prend du temps… Problème de connexion ? Rafraîchis la page.',
     loadTimeout: 'Impossible de charger la partie. Retourne au lobby et réessaie.',

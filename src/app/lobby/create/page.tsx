@@ -18,12 +18,24 @@ export default function LobbyCreatePage() {
     setLoading(true)
     setError(null)
     try {
-      // Multijoueur : on crée juste la partie (waiting). Les réglages et les films
-      // sont gérés dans le lobby puis au démarrage — pas de films ici.
+      // Réglages éventuellement transmis par /settings via l'URL : on les fait
+      // suivre pour pré-remplir le lobby. Absents (flux accueil → /lobby/create
+      // direct) → le serveur applique les valeurs par défaut.
+      const sp = new URLSearchParams(window.location.search)
+      const settings = {
+        rounds: sp.get('rounds') !== null ? Number(sp.get('rounds')) : undefined,
+        timer: sp.get('timer') !== null ? Number(sp.get('timer')) : undefined,
+        difficulty: sp.get('difficulty') ?? undefined,
+        genre: sp.get('genre') ?? undefined,
+        gameMode: sp.get('gameMode') ?? undefined,
+      }
+
+      // Multijoueur : on crée juste la partie (waiting). Les films sont générés
+      // au démarrage depuis le lobby — pas de films ici.
       const res = await fetch('/api/games/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'multiplayer', playerName: trimmed }),
+        body: JSON.stringify({ mode: 'multiplayer', playerName: trimmed, ...settings }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)

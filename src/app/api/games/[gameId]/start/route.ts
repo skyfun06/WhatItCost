@@ -95,6 +95,9 @@ export async function PATCH(
         timer_seconds: settings.timer,
         difficulty: settings.difficulty,
         genre: settings.genre,
+        // Référence commune du minuteur (round 1). Tous les clients calculent le
+        // temps restant à partir de cet instant → pas de dérive ni de reset au refresh.
+        round_started_at: new Date().toISOString(),
       })
       .eq('id', gameId)
     if (updateErr) {

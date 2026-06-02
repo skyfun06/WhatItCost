@@ -84,6 +84,7 @@ export interface Database {
           genre: string
           game_settings: Json
           rematch_game_id: string | null
+          round_started_at: string | null
           locale: 'fr' | 'en'
           created_at: string
           finished_at: string | null
@@ -101,6 +102,7 @@ export interface Database {
           genre?: string
           game_settings?: Json
           rematch_game_id?: string | null
+          round_started_at?: string | null
           locale?: 'fr' | 'en'
           created_at?: string
           finished_at?: string | null
@@ -118,6 +120,7 @@ export interface Database {
           genre?: string
           game_settings?: Json
           rematch_game_id?: string | null
+          round_started_at?: string | null
           locale?: 'fr' | 'en'
           created_at?: string
           finished_at?: string | null

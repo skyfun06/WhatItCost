@@ -164,6 +164,11 @@ export default function GamePage() {
   // Durée du minuteur par round (0 = ∞, pas de compte à rebours).
   const [timerSeconds, setTimerSeconds] = useState(DEFAULT_TIMER_SECONDS)
   const [timeLeft, setTimeLeft] = useState(DEFAULT_TIMER_SECONDS)
+  // Instant de début du round courant, partagé par tous les joueurs (multi).
+  // Sert de référence commune au minuteur. NULL en solo (compteur local).
+  const [roundStartedAt, setRoundStartedAt] = useState<string | null>(null)
+  // Multi : score de chaque joueur pour le round qu'on révèle (comparaison dans la popup).
+  const [roundScores, setRoundScores] = useState<{ id: string; name: string; score: number }[]>([])
   const [alreadyAnswered, setAlreadyAnswered] = useState(false)
   const [isHost, setIsHost] = useState(false)
   // Échappatoire hôte : si l'attente s'éternise (joueur parti, minuteur ∞),
@@ -304,6 +309,8 @@ export default function GamePage() {
 
       // Le minuteur est porté par la partie (défini par l'hôte)
       setTimerSeconds(game.timer_seconds ?? DEFAULT_TIMER_SECONDS)
+      // Référence commune du minuteur (posée par /start et /advance côté serveur).
+      setRoundStartedAt(game.round_started_at ?? null)
 
       // 1) Partie terminée → écran final avec scores serveur
       if (game.status === 'finished') {
@@ -351,6 +358,23 @@ export default function GamePage() {
         // Tout le monde a répondu (donc nous aussi) → révélation pour tous
         if (phaseRef.current !== 'revealing') {
           console.log('[WIC] reconcile: → revealing (all answered)')
+          // Score de chaque joueur pour ce round → comparaison dans la popup.
+          const scoresRes = await supabase
+            .from('rounds')
+            .select('player_id, score')
+            .eq('game_id', gameId)
+            .eq('round_number', serverRound)
+          if (scoresRes.error) console.error('[WIC] reconcile: scores du round', scoresRes.error)
+          const scoreByPlayer: Record<string, number> = Object.fromEntries(
+            (scoresRes.data ?? []).map((r: { player_id: string; score: number }) => [r.player_id, r.score]),
+          )
+          setRoundScores(
+            ((data.players ?? []) as PlayerScore[]).map((p) => ({
+              id: p.id,
+              name: p.name,
+              score: scoreByPlayer[p.id] ?? 0,
+            })),
+          )
           setPhase('revealing')
         }
       } else if (iAnswered) {
@@ -469,28 +493,44 @@ export default function GamePage() {
       setAlreadyAnswered(false)
       setHolResult(null)
       setHolChoice(null)
+      setRoundScores([]) // évite un flash des scores du round précédent
     }
   }, [phase, currentRound])
 
   const currentMovie = movies[currentRound - 1]
   const totalScore = scores.reduce((a, b) => a + b, 0)
 
-  // Fetch real actor photos from TMDB (via server route) for the current movie
+  // Films affichés : en Higher or Lower, deux films par round (indices 2n / 2n+1).
+  const holLeft = gameModeType === 'higher_or_lower' ? movies[(currentRound - 1) * 2] : undefined
+  const holRight = gameModeType === 'higher_or_lower' ? movies[(currentRound - 1) * 2 + 1] : undefined
+
+  // Acteurs à charger : les DEUX cartes en HoL, sinon le seul film courant.
+  // (le film courant en HoL n'est pas une des cartes affichées → bug de photos)
+  const castNames =
+    gameModeType === 'higher_or_lower'
+      ? [...(holLeft?.cast_list ?? []), ...(holRight?.cast_list ?? [])]
+      : currentMovie?.cast_list ?? []
+  const actorFetchKey =
+    gameModeType === 'higher_or_lower'
+      ? `${holLeft?.id ?? ''}-${holRight?.id ?? ''}`
+      : String(currentMovie?.id ?? '')
+
+  // Fetch real actor photos from TMDB (via server route) for the displayed movie(s)
   useEffect(() => {
-    if (!currentMovie || currentMovie.cast_list.length === 0) return
+    if (castNames.length === 0) return
     let cancelled = false
     setActorPhotos({}) // clear stale photos while the new ones load
     fetch('/api/actors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ names: currentMovie.cast_list }),
+      body: JSON.stringify({ names: castNames }),
     })
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setActorPhotos(data.photos ?? {}) })
       .catch(() => {})
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMovie?.id])
+  }, [actorFetchKey])
 
   const handleSubmit = useCallback(async () => {
     // Synchronous re-entry guard: blocks a fast double-click / timer+click race
@@ -733,22 +773,33 @@ export default function GamePage() {
   // Countdown timer: runs during 'guessing', resets each round, auto-submits at 0.
   // Leaving 'guessing' (incl. clicking VALIDER → phase changes) clears the interval.
   // timerSeconds === 0 → mode ∞ : aucun compte à rebours, aucune soumission auto.
+  //
+  // Échéance calculée à partir d'une référence COMMUNE (round_started_at) en multi :
+  // tous les clients convergent vers le même temps restant, et un refresh ne remet
+  // pas le compteur à fond. Solo / fallback : échéance locale (Date.now()).
   useEffect(() => {
     if (phase !== 'guessing') return
     if (timerSeconds <= 0) return
-    setTimeLeft(timerSeconds)
-    const id = setInterval(() => {
-      setTimeLeft((t) => {
-        if (t <= 1) {
-          clearInterval(id)
-          handleSubmitRef.current() // auto-submit with the current slider value
-          return 0
-        }
-        return t - 1
-      })
-    }, 1000)
+
+    const startMs =
+      gameMode === 'multiplayer' && roundStartedAt ? new Date(roundStartedAt).getTime() : Date.now()
+    const deadline = startMs + timerSeconds * 1000
+
+    let id: ReturnType<typeof setInterval>
+    let autoSubmitted = false
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      setTimeLeft(remaining)
+      if (remaining <= 0 && !autoSubmitted) {
+        autoSubmitted = true
+        clearInterval(id)
+        handleSubmitRef.current() // auto-submit with the current slider value
+      }
+    }
+    tick() // initialise immédiatement (évite un flash à timerSeconds avant le 1er intervalle)
+    id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [phase, currentRound, timerSeconds])
+  }, [phase, currentRound, timerSeconds, gameMode, roundStartedAt])
 
   // Anti-blocage : l'hôte peut forcer l'avancement après 12s d'attente
   // (utile si un joueur a abandonné, surtout avec un minuteur ∞).
@@ -1043,7 +1094,7 @@ export default function GamePage() {
                       {scores.map((s, i) => (
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#888888' }}>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
-                            {movies[i]?.title ?? `${t.game.round} ${i + 1}`}
+                            {(gameModeType === 'higher_or_lower' ? movies[i * 2 + 1]?.title : movies[i]?.title) ?? `${t.game.round} ${i + 1}`}
                           </span>
                           <span style={{ color: '#cccccc', fontWeight: 600, marginLeft: '12px', whiteSpace: 'nowrap' }}>
                             {formatScore(s)} {t.game.points}
@@ -1101,6 +1152,122 @@ export default function GamePage() {
       ? `${t.game.nextMovie} →`
       : `${t.game.nextRound} →`
 
+  // ─── Popup de révélation (unifiée : solo / multi, Budget Guess & Higher or Lower) ──
+  // Affiche le résultat perso du round, puis — en multi — le score de chaque joueur
+  // pour ce round (comparaison). Le bouton d'avancement dépend du rôle.
+  const perRoundMaxForReveal = gameModeType === 'higher_or_lower' ? 1000 : 5000
+  const revealModal = (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+      style={{ backgroundColor: 'rgba(0,0,0,0.85)', animation: 'wicFadeIn 0.2s ease-out' }}
+    >
+      <div
+        className="w-full flex flex-col text-center p-7 sm:p-9"
+        style={{
+          maxWidth: '420px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          backgroundColor: '#1a1a1a',
+          border: '1px solid #333',
+          borderRadius: '16px',
+          animation: 'wicPopIn 0.25s ease-out',
+        }}
+      >
+        {/* Résultat personnel du round */}
+        {gameModeType === 'higher_or_lower'
+          ? holResult && (
+              <>
+                <p className="font-bold" style={{ fontSize: '1.2rem', color: holResult.correct ? '#48D982' : '#FF5C5C' }}>
+                  {holResult.correct ? `${t.game.correct} ✓` : `${t.game.wrong} ✗`}
+                </p>
+                <p className="font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(2.2rem, 11vw, 3rem)', lineHeight: 1.1 }}>
+                  +{formatScore(holResult.points)} {t.game.points}
+                </p>
+                <p className="mt-2 font-semibold" style={{ color: '#FF4D2E' }}>
+                  {t.game.actualBudget} : {formatBudget(holResult.revealed_budget)}
+                </p>
+              </>
+            )
+          : roundResult && (
+              <>
+                <p className="font-bold text-white" style={{ fontSize: '1.2rem' }}>{scoreLabel(roundResult.score, t.game)}</p>
+                <p className="font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(2.2rem, 11vw, 3rem)', lineHeight: 1.1 }}>
+                  +{formatScore(roundResult.score)} {t.game.points}
+                </p>
+                <p className="text-white mt-4">
+                  {t.game.yourGuess} : <span className="font-semibold">{formatBudget(roundResult.guess)}</span>
+                </p>
+                <p className="mt-1 font-semibold" style={{ color: '#FF4D2E' }}>
+                  {t.game.actualBudget} : {formatBudget(roundResult.actual_budget)}
+                </p>
+                <p className="text-muted mt-1">
+                  {t.game.gap} : <span>{gapPercent(roundResult)}%</span>
+                </p>
+              </>
+            )}
+
+        {/* Multi : score de chaque joueur pour ce round (comparaison) */}
+        {gameMode === 'multiplayer' && roundScores.length > 0 && (
+          <>
+            <p className="text-xs uppercase mt-5 mb-2" style={{ color: '#666', letterSpacing: '0.15em' }}>
+              {t.game.roundScores}
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {[...roundScores]
+                .sort((a, b) => b.score - a.score)
+                .map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between rounded-lg px-3 py-2"
+                    style={{
+                      backgroundColor: 'rgba(0,0,0,0.35)',
+                      border: p.id === playerId ? '1px solid rgba(255,255,255,0.4)' : '1px solid #2a2a2a',
+                    }}
+                  >
+                    <span className="text-sm text-white truncate min-w-0">
+                      {p.name}
+                      {p.id === playerId && (
+                        <span className="text-xs ml-1" style={{ color: 'rgba(255,255,255,0.5)' }}>({t.common.you})</span>
+                      )}
+                    </span>
+                    <span
+                      className="text-sm font-semibold shrink-0 ml-2"
+                      style={{ color: scoreTextColor((p.score / perRoundMaxForReveal) * 100) }}
+                    >
+                      {formatScore(p.score)}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </>
+        )}
+
+        <div style={{ borderTop: '1px solid #333', margin: '24px 0 0' }} />
+
+        {/* Avancement : solo → soi-même ; multi → hôte (les invités attendent) */}
+        {gameMode === 'solo' ? (
+          <button
+            onClick={advanceSolo}
+            className="mt-6 w-full py-3 font-bold text-white uppercase tracking-wider"
+            style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+          >
+            {nextLabel}
+          </button>
+        ) : isHost ? (
+          <button
+            onClick={advanceHost}
+            className="mt-6 w-full py-3 font-bold text-white uppercase tracking-wider"
+            style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+          >
+            {nextLabel}
+          </button>
+        ) : (
+          <p className="mt-6 text-xs text-muted">{t.game.waitingHost}</p>
+        )}
+      </div>
+    </div>
+  )
+
   // ─── HIGHER OR LOWER ────────────────────────────────────────────────────────
   if (gameModeType === 'higher_or_lower') {
     const left = movies[(currentRound - 1) * 2]
@@ -1114,44 +1281,110 @@ export default function GamePage() {
     }
     const canAnswer = phase === 'guessing' && !submitting && !alreadyAnswered
 
-    const card = (movie: GameMovie, isRight: boolean) => (
-      <div
-        className="flex-1 min-w-0 flex flex-col items-center gap-2 p-4"
-        style={{ backgroundColor: 'rgba(15,15,15,0.85)', border: '1px solid #222', borderRadius: '16px' }}
-      >
-        {movie.poster_path && (
-          <Image
-            src={movie.poster_url}
-            alt={movie.title}
-            width={300}
-            height={450}
-            unoptimized
-            className="object-cover w-auto rounded-xl"
-            style={{ maxHeight: '30vh' }}
-          />
-        )}
-        <h2 className="font-bold text-white text-center leading-tight" style={{ fontSize: 'clamp(1rem, 3.5vw, 1.4rem)' }}>
-          {movie.title}
-        </h2>
-        <div className="flex flex-wrap gap-1.5 justify-center">
-          {[String(movie.year), ...movie.genres.slice(0, 2)].map((tag, i) => (
-            <span key={i} className="text-xs px-2.5 py-0.5 text-white" style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '100px' }}>
-              {tag}
-            </span>
-          ))}
+    const card = (movie: GameMovie, isRight: boolean) => {
+      // Synopsis dans la langue active (repli sur l'autre langue si vide)
+      const cardOverview =
+        locale === 'fr'
+          ? movie.overview_fr || movie.overview
+          : movie.overview || movie.overview_fr
+      return (
+        <div
+          className="flex-1 min-w-0 flex flex-col items-center gap-2 p-4"
+          style={{ backgroundColor: 'rgba(15,15,15,0.85)', border: '1px solid #222', borderRadius: '16px' }}
+        >
+          {movie.poster_path && (
+            <Image
+              src={movie.poster_url}
+              alt={movie.title}
+              width={300}
+              height={450}
+              unoptimized
+              className="object-cover w-auto rounded-xl"
+              style={{ maxHeight: '24vh' }}
+            />
+          )}
+          <h2 className="font-bold text-white text-center leading-tight" style={{ fontSize: 'clamp(1rem, 3.5vw, 1.4rem)' }}>
+            {movie.title}
+          </h2>
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {[String(movie.year), ...movie.genres.slice(0, 2)].map((tag, i) => (
+              <span key={i} className="text-xs px-2.5 py-0.5 text-white" style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '100px' }}>
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          {/* Réalisateur */}
+          {movie.director && (
+            <p className="text-xs text-center leading-tight">
+              <span style={{ color: '#666' }}>{t.game.director} </span>
+              <span className="text-white font-semibold">{movie.director}</span>
+            </p>
+          )}
+
+          {/* Casting (photos réelles TMDB, repli initiales) */}
+          {movie.cast_list.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2.5 max-w-full">
+              {movie.cast_list.slice(0, 4).map((name, i) => {
+                const profile = actorPhotos[name]
+                return (
+                  <div key={i} className="flex flex-col items-center gap-1 shrink-0" style={{ width: '48px' }}>
+                    {profile ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w185${profile}`}
+                        alt={name}
+                        width={40}
+                        height={40}
+                        unoptimized
+                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div
+                        className="flex items-center justify-center text-[0.6rem] font-bold text-white/70"
+                        style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#2a2a2a' }}
+                      >
+                        {initials(name)}
+                      </div>
+                    )}
+                    <span className="text-center text-white/60 leading-tight" style={{ fontSize: '0.6rem' }} title={name}>
+                      {shortName(name)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Synopsis (tronqué) */}
+          {cardOverview && (
+            <p
+              className="text-xs leading-relaxed text-center"
+              style={{
+                color: '#888',
+                display: '-webkit-box',
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {cardOverview}
+            </p>
+          )}
+
+          {/* Budget — pousse en bas pour aligner les deux cartes */}
+          <div className="flex-1" />
+          {isRight ? (
+            <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: holResult ? '#FF4D2E' : '#666' }}>
+              {holResult ? formatBudget(holResult.revealed_budget) : '???'}
+            </p>
+          ) : (
+            <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: '#FF4D2E' }}>
+              {left.budget != null ? formatBudget(left.budget) : '—'}
+            </p>
+          )}
         </div>
-        {/* Budget */}
-        {isRight ? (
-          <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: holResult ? '#FF4D2E' : '#666' }}>
-            {holResult ? formatBudget(holResult.revealed_budget) : '???'}
-          </p>
-        ) : (
-          <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: '#FF4D2E' }}>
-            {left.budget != null ? formatBudget(left.budget) : '—'}
-          </p>
-        )}
-      </div>
-    )
+      )
+    }
 
     return (
       <AnimatedBackground className="min-h-screen text-white">
@@ -1230,35 +1463,14 @@ export default function GamePage() {
                   )}
                   {showStuckHint && <p className="text-xs leading-relaxed" style={{ color: '#666' }}>{t.game.stuckHint}</p>}
                 </div>
-              ) : phase === 'revealing' ? (
-                <div className="flex flex-col items-center gap-2 p-5 text-center" style={{ backgroundColor: 'rgba(26,26,26,0.9)', borderRadius: '10px', border: '1px solid #222', animation: 'wicPopIn 0.25s ease-out' }}>
-                  {holResult && (
-                    <>
-                      <p className="text-xl font-bold" style={{ color: holResult.correct ? '#48D982' : '#FF5C5C' }}>
-                        {holResult.correct ? `${t.game.correct} ✓` : `${t.game.wrong} ✗`}
-                      </p>
-                      <p className="text-3xl font-bold" style={{ color: '#FF4D2E' }}>
-                        +{formatScore(holResult.points)} {t.game.points}
-                      </p>
-                    </>
-                  )}
-                  {gameMode === 'solo' ? (
-                    <button onClick={advanceSolo} className="mt-3 w-full py-3 font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
-                      {nextLabel}
-                    </button>
-                  ) : isHost ? (
-                    <button onClick={advanceHost} className="mt-3 w-full py-3 font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
-                      {nextLabel}
-                    </button>
-                  ) : (
-                    <p className="mt-3 text-xs text-muted">{t.game.waitingHost}</p>
-                  )}
-                </div>
-              ) : null}
+              ) : null /* révélation : popup unifiée ci-dessous */}
               {error && <p className="text-red-400 text-sm text-center mt-2">{error}</p>}
             </div>
           </div>
         </div>
+
+        {/* Popup de score (solo & multi) */}
+        {phase === 'revealing' && revealModal}
       </AnimatedBackground>
     )
   }
@@ -1274,7 +1486,6 @@ export default function GamePage() {
       ? currentMovie.overview_fr || currentMovie.overview
       : currentMovie.overview || currentMovie.overview_fr
   const showSlider = phase === 'guessing'
-  const result = roundResult
 
   return (
     <AnimatedBackground className="min-h-screen md:h-screen md:overflow-hidden text-white">
@@ -1424,48 +1635,7 @@ export default function GamePage() {
                     </p>
                   )}
                 </div>
-              ) : phase === 'revealing' && gameMode === 'multiplayer' ? (
-                // Multiplayer reveal stays inline (host paces everyone). Solo uses a modal.
-                // Le score perso peut manquer après un refresh : on n'affiche que
-                // le contrôle d'avancement dans ce cas (jamais d'écran bloqué/vide).
-                <div
-                  className="flex flex-col gap-1 p-5 text-center"
-                  style={{ backgroundColor: 'rgba(26,26,26,0.9)', borderRadius: '10px', border: '1px solid #222' }}
-                >
-                  {result && (
-                    <>
-                      <p className="text-xl font-bold">{scoreLabel(result.score, t.game)}</p>
-                      <p className="text-3xl font-bold" style={{ color: '#FF4D2E' }}>
-                        +{formatScore(result.score)} {t.game.points}
-                      </p>
-                      <p className="text-sm text-muted mt-2">
-                        {t.game.yourGuess} :{' '}
-                        <span className="text-white font-semibold">{formatBudget(result.guess)}</span>
-                      </p>
-                      <p className="text-sm text-muted">
-                        {t.game.actualBudget} :{' '}
-                        <span className="font-semibold" style={{ color: '#FF4D2E' }}>{formatBudget(result.actual_budget)}</span>
-                      </p>
-                      <p className="text-sm text-muted">
-                        {t.game.gap} : <span className="text-white">{gapPercent(result)}%</span>
-                      </p>
-                    </>
-                  )}
-
-                  {/* Advance control — host only */}
-                  {isHost ? (
-                    <button
-                      onClick={advanceHost}
-                      className="mt-4 w-full py-3 font-bold text-white uppercase tracking-wider"
-                      style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
-                    >
-                      {nextLabel}
-                    </button>
-                  ) : (
-                    <p className="mt-4 text-xs text-muted">{t.game.waitingHost}</p>
-                  )}
-                </div>
-              ) : null}
+              ) : null /* révélation : popup unifiée en bas */}
             </div>
           </div>
 
@@ -1577,52 +1747,8 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* ─── Solo score reveal modal ──────────────────────────────────── */}
-      {phase === 'revealing' && gameMode === 'solo' && result && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
-          style={{ backgroundColor: 'rgba(0,0,0,0.85)', animation: 'wicFadeIn 0.2s ease-out' }}
-        >
-          <div
-            className="w-full flex flex-col text-center p-7 sm:p-10"
-            style={{
-              maxWidth: '420px',
-              backgroundColor: '#1a1a1a',
-              border: '1px solid #333',
-              borderRadius: '16px',
-              animation: 'wicPopIn 0.25s ease-out',
-            }}
-          >
-            <p className="font-bold text-white" style={{ fontSize: '1.2rem' }}>
-              {scoreLabel(result.score, t.game)}
-            </p>
-            <p className="font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(2.2rem, 11vw, 3rem)', lineHeight: 1.1 }}>
-              +{formatScore(result.score)} {t.game.points}
-            </p>
-
-            <p className="text-white mt-4">
-              {t.game.yourGuess} :{' '}
-              <span className="font-semibold">{formatBudget(result.guess)}</span>
-            </p>
-            <p className="mt-1 font-semibold" style={{ color: '#FF4D2E' }}>
-              {t.game.actualBudget} : {formatBudget(result.actual_budget)}
-            </p>
-            <p className="text-muted mt-1">
-              {t.game.gap} : <span>{gapPercent(result)}%</span>
-            </p>
-
-            <div style={{ borderTop: '1px solid #333', margin: '24px 0 0' }} />
-
-            <button
-              onClick={advanceSolo}
-              className="mt-6 w-full py-3 font-bold text-white uppercase tracking-wider"
-              style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
-            >
-              {nextLabel}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Popup de score unifiée (solo & multi, Budget Guess) */}
+      {phase === 'revealing' && revealModal}
     </AnimatedBackground>
   )
 }

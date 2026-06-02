@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { fetchRandomMoviesWithBudget } from '@/lib/tmdb/fetchMovies'
-import { sanitizeSettings, moviesNeeded, DEFAULT_SETTINGS } from '@/lib/gameSettings'
+import { sanitizeSettings, moviesNeeded } from '@/lib/gameSettings'
 import type { Database } from '@/lib/supabase/database.types'
 
 type GameRow = Database['public']['Tables']['games']['Row']
@@ -37,7 +37,10 @@ export async function POST(request: Request) {
           timer_seconds: settings.timer,
           difficulty: settings.difficulty,
           genre: settings.genre,
-          game_settings: DEFAULT_SETTINGS,
+          // Réglages reçus (sanitizés) : si l'hôte a déjà configuré sur /settings,
+          // le lobby les pré-affiche au lieu de repartir sur les valeurs par défaut.
+          // Body sans réglages → sanitizeSettings renvoie les défauts (flux accueil).
+          game_settings: settings,
           locale: 'fr',
         })
         .select()

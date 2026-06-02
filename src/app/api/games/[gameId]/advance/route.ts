@@ -67,7 +67,11 @@ export async function PATCH(
     // concurrente : seul le passage current_round → current_round+1 réussit).
     const { error: advanceErr } = await db
       .from('games')
-      .update({ current_round: current_round + 1 })
+      .update({
+        current_round: current_round + 1,
+        // Réarme la référence commune du minuteur pour le nouveau round.
+        round_started_at: new Date().toISOString(),
+      })
       .eq('id', gameId)
       .eq('current_round', current_round)
     if (advanceErr) {

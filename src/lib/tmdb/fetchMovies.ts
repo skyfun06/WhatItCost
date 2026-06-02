@@ -80,12 +80,16 @@ export async function fetchRandomMoviesWithBudget(
             getMovieById(m.id, 'en-US'),
             getMovieById(m.id, 'fr-FR'),
           ])
-          if (en.budget <= 0) return null
+          // Exige un budget connu ET une année valide : `movies.year` est un
+          // SMALLINT NOT NULL — un NaN (release_date absente) ferait échouer
+          // l'upsert et planter tout le /start ou la création de partie.
+          const year = parseInt((en.release_date ?? '').slice(0, 4), 10)
+          if (en.budget <= 0 || !Number.isFinite(year)) return null
           return {
             id: en.id,
             title: en.title,
             title_fr: fr.title !== en.title ? fr.title : en.title,
-            year: parseInt(en.release_date.slice(0, 4), 10),
+            year,
             director: en.credits?.crew.find((c) => c.job === 'Director')?.name ?? null,
             cast_list: (en.credits?.cast ?? []).slice(0, 5).map((a) => a.name),
             poster_path: en.poster_path,

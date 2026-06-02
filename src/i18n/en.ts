@@ -81,6 +81,7 @@ export const en = {
     accuracy: 'Accuracy',
     waitingOthers: 'Waiting for the other players…',
     waitingHost: 'Waiting for the host…',
+    roundScores: 'Round scores',
     forceNext: 'Force next round',
     stuckHint: 'This is taking a while… Connection issue? Refresh the page.',
     loadTimeout: 'Could not load the game. Go back to the lobby and try again.',

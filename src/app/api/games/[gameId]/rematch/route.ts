@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { fetchRandomMoviesWithBudget, type Difficulty } from '@/lib/tmdb/fetchMovies'
 import type { Database } from '@/lib/supabase/database.types'
 
 type GameRow = Database['public']['Tables']['games']['Row']
@@ -9,9 +8,12 @@ type PlayerRow = Database['public']['Tables']['players']['Row']
 export const dynamic = 'force-dynamic'
 
 // Crée une partie de revanche à partir d'une partie multijoueur terminée :
-// mêmes réglages (rounds / timer / difficulté / genre), mêmes joueurs (l'hôte
-// reste l'hôte), nouveaux films. Idempotent : si la revanche existe déjà
-// (un autre joueur a cliqué en premier), on renvoie la partie existante.
+// mêmes réglages (game_settings : rounds / timer / mode / genre / difficulté),
+// mêmes joueurs (l'hôte reste l'hôte). La partie repart en 'waiting' : l'hôte
+// relance depuis le lobby, et c'est /start qui (re)génère les films à partir des
+// réglages — inutile de les fetcher ici.
+// Idempotent : si la revanche existe déjà (un autre joueur a cliqué en premier),
+// on renvoie la partie existante.
 export async function POST(
   request: Request,
   { params }: { params: { gameId: string } },
@@ -24,7 +26,7 @@ export async function POST(
 
     const oldGameRes = await db
       .from('games')
-      .select('id, mode, movie_ids, timer_seconds, difficulty, genre, rematch_game_id')
+      .select('id, mode, timer_seconds, difficulty, genre, game_settings, rematch_game_id')
       .eq('id', gameId)
       .single() as { data: Partial<GameRow> | null; error: Error | null }
 
@@ -43,10 +45,6 @@ export async function POST(
       return NextResponse.json({ gameId: old.rematch_game_id })
     }
 
-    const roundCount = (old.movie_ids ?? []).length || 5
-    const difficulty = (old.difficulty as Difficulty) ?? 'all'
-    const genre = old.genre ?? 'all'
-
     // Joueurs à recopier (l'hôte conserve son statut)
     const oldPlayersRes = await db
       .from('players')
@@ -57,36 +55,20 @@ export async function POST(
       return NextResponse.json({ error: 'No players to carry over' }, { status: 500 })
     }
 
-    // Nouveaux films avec les mêmes filtres
-    const movies = await fetchRandomMoviesWithBudget(roundCount, { genre, difficulty })
-    if (movies.length < roundCount) {
-      return NextResponse.json({ error: 'Not enough movies for rematch' }, { status: 503 })
-    }
-
-    const moviesUpsert = await db.from('movies').upsert(
-      movies.map((m) => ({
-        id: m.id, title: m.title, title_fr: m.title_fr, year: m.year,
-        director: m.director, cast_list: m.cast_list, poster_path: m.poster_path,
-        budget: m.budget, genres: m.genres, overview: m.overview, overview_fr: m.overview_fr,
-      })),
-      { onConflict: 'id' },
-    ) as { error: Error | null }
-    if (moviesUpsert.error) {
-      console.error('[WIC] /rematch: échec upsert movies', moviesUpsert.error)
-      return NextResponse.json({ error: 'Failed to save movies' }, { status: 500 })
-    }
-
-    // Nouvelle partie (waiting → l'hôte relance depuis le lobby)
+    // Nouvelle partie vide en attente (films générés par /start, comme à la création)
     const newGameRes = await db
       .from('games')
       .insert({
         mode: 'multiplayer',
         status: 'waiting',
-        movie_ids: movies.map((m) => m.id),
+        movie_ids: [],
         current_round: 1,
         timer_seconds: old.timer_seconds ?? 30,
-        difficulty,
-        genre,
+        difficulty: old.difficulty ?? 'all',
+        genre: old.genre ?? 'all',
+        // Réglages complets recopiés pour rejouer à l'identique (sinon /start
+        // repartirait sur les valeurs par défaut, ex : Higher or Lower → budget_guess).
+        game_settings: old.game_settings ?? {},
         locale: 'fr',
       })
       .select()
@@ -109,6 +91,8 @@ export async function POST(
     ) as { error: Error | null }
     if (playersInsert.error) {
       console.error('[WIC] /rematch: échec recopie joueurs', playersInsert.error)
+      // Nettoie la partie orpheline pour ne pas laisser un lobby vide inutilisable.
+      await db.from('games').delete().eq('id', newGame.id)
       return NextResponse.json({ error: 'Failed to carry over players' }, { status: 500 })
     }
 
