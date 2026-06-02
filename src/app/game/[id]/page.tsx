@@ -460,7 +460,9 @@ export default function GamePage() {
           () => { reconcile() },
         )
         .subscribe((status) => {
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // CLOSED est l'état terminal NORMAL au démontage (navigation, double-mount
+          // StrictMode en dev) — pas une panne. On ne logue que les vraies erreurs.
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             console.error(`Realtime: canal game-${gameId} → ${status}`)
           }
         })
