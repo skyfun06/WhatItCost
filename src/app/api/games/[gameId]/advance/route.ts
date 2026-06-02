@@ -37,16 +37,19 @@ export async function PATCH(
 
     const gameResult = await db
       .from('games')
-      .select('current_round, movie_ids')
+      .select('current_round, movie_ids, game_settings')
       .eq('id', gameId)
-      .single() as { data: Pick<GameRow, 'current_round' | 'movie_ids'> | null; error: Error | null }
+      .single() as { data: Pick<GameRow, 'current_round' | 'movie_ids' | 'game_settings'> | null; error: Error | null }
 
     if (gameResult.error || !gameResult.data) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 })
     }
 
     const { current_round, movie_ids } = gameResult.data
-    const totalRounds = movie_ids.length
+    // Higher or Lower = 2 films par round
+    const isHoL =
+      (gameResult.data.game_settings as { gameMode?: string } | null)?.gameMode === 'higher_or_lower'
+    const totalRounds = isHoL ? Math.floor(movie_ids.length / 2) : movie_ids.length
 
     if (current_round >= totalRounds) {
       const { error: finishErr } = await db

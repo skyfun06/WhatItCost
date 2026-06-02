@@ -34,15 +34,20 @@ export async function GET(
         error: Error | null
       },
       db.from('movies')
-        .select('id, title, title_fr, year, director, cast_list, poster_path, genres, overview, overview_fr')
+        .select('id, title, title_fr, year, director, cast_list, poster_path, budget, genres, overview, overview_fr')
         .in('id', game.movie_ids) as { data: Partial<MovieRow>[] | null; error: Error | null },
     ])
+
+    // Higher or Lower : on révèle le budget des films "gauche" (index pairs) pour
+    // que le joueur puisse comparer ; le film "droite" (impair) reste caché.
+    const isHoL =
+      (game.game_settings as { gameMode?: string } | null)?.gameMode === 'higher_or_lower'
 
     const moviesById = Object.fromEntries((moviesResult.data ?? []).map((m) => [m.id!, m]))
     const movies = game.movie_ids
       .map((id: number) => moviesById[id])
       .filter(Boolean)
-      .map((m: Partial<MovieRow>) => ({
+      .map((m: Partial<MovieRow>, index: number) => ({
         id: m.id,
         title: m.title,
         title_fr: m.title_fr,
@@ -54,6 +59,8 @@ export async function GET(
         genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
         overview: m.overview,
         overview_fr: m.overview_fr,
+        // budget visible seulement pour le film gauche en HoL
+        budget: isHoL && index % 2 === 0 ? m.budget : null,
       }))
 
     return NextResponse.json({

@@ -21,6 +21,8 @@ interface GameMovie {
   genres: string[]
   overview: string
   overview_fr: string
+  // Présent uniquement pour les films "gauche" en Higher or Lower (budget révélé)
+  budget?: number | null
 }
 
 interface RoundResult {
@@ -45,6 +47,12 @@ type Phase = 'loading' | 'guessing' | 'revealing' | 'waiting_others' | 'finished
 // repli si rien n'est défini.
 const DEFAULT_ROUND_COUNT = 5
 const DEFAULT_TIMER_SECONDS = 30
+
+// Nombre de rounds depuis le nombre de films (Higher or Lower = 2 films/round)
+function roundsFromMovies(movieCount: number, mode: string): number {
+  if (movieCount <= 0) return DEFAULT_ROUND_COUNT
+  return mode === 'higher_or_lower' ? Math.floor(movieCount / 2) : movieCount
+}
 
 function scoreLabel(score: number, g: Translations['game']): string {
   if (score >= 4500) return g.scoreLabels.perfect
@@ -172,6 +180,17 @@ export default function GamePage() {
   const scoreCardRef = useRef<HTMLDivElement>(null)
   // Échec de chargement (timeout 8s) → écran d'erreur avec retour au lobby
   const [loadError, setLoadError] = useState(false)
+  // Mode de jeu : 'budget_guess' (slider) ou 'higher_or_lower' (comparaison)
+  const [gameModeType, setGameModeType] = useState<'budget_guess' | 'higher_or_lower'>('budget_guess')
+  const gameModeTypeRef = useRef<'budget_guess' | 'higher_or_lower'>('budget_guess')
+  // Higher or Lower : résultat révélé du round + bouton choisi
+  const [holResult, setHolResult] = useState<{
+    correct: boolean
+    points: number
+    revealed_budget: number
+    left_budget: number
+  } | null>(null)
+  const [holChoice, setHolChoice] = useState<'higher' | 'lower' | null>(null)
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -190,6 +209,7 @@ export default function GamePage() {
   useEffect(() => { currentRoundRef.current = currentRound }, [currentRound])
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { playerIdRef.current = playerId }, [playerId])
+  useEffect(() => { gameModeTypeRef.current = gameModeType }, [gameModeType])
 
   // Revanche : bascule ce joueur vers le nouveau lobby. Retrouve son nouveau
   // player_id via source_player_id, récupère films + timer, puis redirige.
@@ -260,6 +280,21 @@ export default function GamePage() {
         console.log(`[WIC] reconcile: rematch détecté → ${game.rematch_game_id}`)
         goToRematch(game.rematch_game_id)
         return
+      }
+
+      // Mode de jeu partagé via game_settings (multi). Films chargés depuis le
+      // serveur s'ils ne sont pas encore en mémoire (multi : récupérés au start).
+      const gm: 'budget_guess' | 'higher_or_lower' =
+        (game.game_settings && (game.game_settings as { gameMode?: string }).gameMode) === 'higher_or_lower'
+          ? 'higher_or_lower'
+          : gameModeTypeRef.current
+      if (gm !== gameModeTypeRef.current) {
+        gameModeTypeRef.current = gm
+        setGameModeType(gm)
+      }
+      if (Array.isArray(data.movies) && data.movies.length) {
+        setMovies((prev) => (prev.length ? prev : (data.movies as GameMovie[])))
+        roundCountRef.current = roundsFromMovies(data.movies.length, gm)
       }
 
       // Une fois la partie terminée, plus rien à réconcilier (hors revanche ci-dessus)
@@ -348,20 +383,28 @@ export default function GamePage() {
 
     console.log(`[WIC] game mount: gameId=${gameId}, storedGameId=${storedGameId}, hasPlayer=${!!storedPlayerId}, hasMovies=${!!storedMovies}, mode=${storedMode}`)
 
-    if (storedGameId !== gameId || !storedPlayerId || !storedMovies) {
+    // En multi, les films sont récupérés au démarrage et chargés depuis le serveur,
+    // donc wic_movies peut être absent/vide ici. En solo on l'exige.
+    const needsLocalMovies = storedMode !== 'multiplayer'
+    if (storedGameId !== gameId || !storedPlayerId || (needsLocalMovies && !storedMovies)) {
       console.error('[WIC] game mount: localStorage manquant/incohérent → redirection /game')
       router.replace('/game')
       return
     }
 
-    const parsedMovies: GameMovie[] = JSON.parse(storedMovies)
-    console.log(`[WIC] game mount: ${parsedMovies.length} films chargés, isHost=${localStorage.getItem('wic_is_host')}`)
+    let parsedMovies: GameMovie[] = []
+    try { parsedMovies = storedMovies ? JSON.parse(storedMovies) : [] } catch { parsedMovies = [] }
+    const storedModeType =
+      (localStorage.getItem('wic_game_mode_type') as 'budget_guess' | 'higher_or_lower') ?? 'budget_guess'
+    console.log(`[WIC] game mount: ${parsedMovies.length} films chargés, mode=${storedModeType}, isHost=${localStorage.getItem('wic_is_host')}`)
     setPlayerId(storedPlayerId)
     setMovies(parsedMovies)
     setGameMode(storedMode)
+    setGameModeType(storedModeType)
+    gameModeTypeRef.current = storedModeType
     setIsHost(localStorage.getItem('wic_is_host') === 'true')
-    // Le nombre de rounds est porté par le nombre de films de la partie.
-    roundCountRef.current = parsedMovies.length || DEFAULT_ROUND_COUNT
+    // Le nombre de rounds dépend du mode (Higher or Lower = 2 films/round).
+    roundCountRef.current = roundsFromMovies(parsedMovies.length, storedModeType)
 
     if (storedMode === 'multiplayer') {
       console.log('[WIC] game mount: multijoueur → reconcile + Realtime + polling')
@@ -424,6 +467,8 @@ export default function GamePage() {
       setSliderPos(DEFAULT_POS)
       setGuessMillions((posToDollars(DEFAULT_POS) / 1_000_000).toString())
       setAlreadyAnswered(false)
+      setHolResult(null)
+      setHolChoice(null)
     }
   }, [phase, currentRound])
 
@@ -502,6 +547,49 @@ export default function GamePage() {
       setSubmitting(false)
     }
   }, [playerId, guessMillions, alreadyAnswered, gameId, currentRound, gameMode, reconcile])
+
+  // Higher or Lower : le joueur compare le budget caché (droite) au budget révélé (gauche)
+  const handleHolGuess = useCallback(async (guess: 'higher' | 'lower') => {
+    if (submittingRef.current || alreadyAnswered) return
+    if (!playerId) return
+    const submittedRound = currentRound
+    submittingRef.current = true
+    setSubmitting(true)
+    setHolChoice(guess)
+    setError(null)
+    try {
+      const res = await fetch(`/api/games/${gameId}/higher-or-lower-guess`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ player_id: playerId, round_number: currentRound, guess }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
+      setHolResult({
+        correct: data.correct,
+        points: data.points,
+        revealed_budget: data.revealed_budget,
+        left_budget: data.left_budget,
+      })
+      setScores((prev) => [...prev, data.points])
+      if (gameMode === 'multiplayer') {
+        setPhase('waiting_others')
+        reconcile()
+      } else {
+        setPhase('revealing')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erreur serveur'
+      if (msg === 'Round already answered') {
+        if (currentRoundRef.current === submittedRound) setAlreadyAnswered(true)
+      } else {
+        setError(msg)
+      }
+    } finally {
+      submittingRef.current = false
+      setSubmitting(false)
+    }
+  }, [playerId, alreadyAnswered, gameId, currentRound, gameMode, reconcile])
 
   // Slider interaction → keep guessMillions (consumed by handleSubmit) in sync
   const handleSliderChange = (pos: number) => {
@@ -632,9 +720,15 @@ export default function GamePage() {
     }
   }, [captureScoreCard, t])
 
-  // Always call the latest handleSubmit from the timer without re-arming it
-  const handleSubmitRef = useRef(handleSubmit)
-  useEffect(() => { handleSubmitRef.current = handleSubmit }, [handleSubmit])
+  // Soumission auto au timeout, selon le mode de jeu
+  const autoSubmit = useCallback(() => {
+    if (gameModeTypeRef.current === 'higher_or_lower') handleHolGuess('higher')
+    else handleSubmit()
+  }, [handleHolGuess, handleSubmit])
+
+  // Always call the latest autoSubmit from the timer without re-arming it
+  const handleSubmitRef = useRef(autoSubmit)
+  useEffect(() => { handleSubmitRef.current = autoSubmit }, [autoSubmit])
 
   // Countdown timer: runs during 'guessing', resets each round, auto-submits at 0.
   // Leaving 'guessing' (incl. clicking VALIDER → phase changes) clears the interval.
@@ -716,8 +810,11 @@ export default function GamePage() {
   if (phase === 'finished') {
     const sortedPlayers = [...allPlayers].sort((a, b) => b.total_score - a.total_score)
     const isSolo = gameMode === 'solo' || sortedPlayers.length === 0
-    const maxGameScore = (movies.length || DEFAULT_ROUND_COUNT) * 5000
-    const pct = (totalScore / maxGameScore) * 100
+    // Score max par round selon le mode (HoL = 1000, Budget Guess = 5000)
+    const perRoundMax = gameModeType === 'higher_or_lower' ? 1000 : 5000
+    const finishedRounds = roundsFromMovies(movies.length, gameModeType)
+    const maxGameScore = finishedRounds * perRoundMax
+    const pct = maxGameScore > 0 ? (totalScore / maxGameScore) * 100 : 0
     const bgColor = finalBgColor(pct)
 
     return (
@@ -763,18 +860,23 @@ export default function GamePage() {
           {/* Breakdown — one row per round, title left / points right, no wrap */}
           {isSolo ? (
             <div className="flex flex-col gap-2 text-sm w-full">
-              {scores.map((s, i) => (
+              {scores.map((s, i) => {
+                const rowTitle = gameModeType === 'higher_or_lower'
+                  ? movies[i * 2 + 1]?.title
+                  : movies[i]?.title
+                return (
                 <div key={i} className="flex items-center justify-between gap-3">
-                  <span className="text-white truncate min-w-0">{movies[i]?.title ?? `${t.game.round} ${i + 1}`}</span>
+                  <span className="text-white truncate min-w-0">{rowTitle ?? `${t.game.round} ${i + 1}`}</span>
                   <span className="shrink-0 whitespace-nowrap">
-                    <span className="font-semibold" style={{ color: scoreTextColor((s / 5000) * 100) }}>
+                    <span className="font-semibold" style={{ color: scoreTextColor((s / perRoundMax) * 100) }}>
                       {formatScore(s)} {t.game.points}
                     </span>
                     {' '}
                     <span className="hidden sm:inline" style={{ color: 'rgba(255,255,255,0.5)' }}>({scoreLabel(s, t.game)})</span>
                   </span>
                 </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
             <div className="w-full flex flex-col gap-2">
@@ -990,9 +1092,179 @@ export default function GamePage() {
     )
   }
 
-  if (!currentMovie) return null
+  // ─── Communs aux deux modes ─────────────────────────────────────────────────
+  const roundCount = roundsFromMovies(movies.length, gameModeType)
+  const isLastRound = currentRound >= roundCount
+  const nextLabel = isLastRound
+    ? `${t.game.seeResults} →`
+    : gameMode === 'solo'
+      ? `${t.game.nextMovie} →`
+      : `${t.game.nextRound} →`
 
-  // ─── Game ──────────────────────────────────────────────────────────────────
+  // ─── HIGHER OR LOWER ────────────────────────────────────────────────────────
+  if (gameModeType === 'higher_or_lower') {
+    const left = movies[(currentRound - 1) * 2]
+    const right = movies[(currentRound - 1) * 2 + 1]
+    if (!left || !right) {
+      return (
+        <div className="min-h-screen flex items-center justify-center text-muted text-sm" style={{ backgroundColor: '#111111' }}>
+          {t.common.loading}
+        </div>
+      )
+    }
+    const canAnswer = phase === 'guessing' && !submitting && !alreadyAnswered
+
+    const card = (movie: GameMovie, isRight: boolean) => (
+      <div
+        className="flex-1 min-w-0 flex flex-col items-center gap-2 p-4"
+        style={{ backgroundColor: 'rgba(15,15,15,0.85)', border: '1px solid #222', borderRadius: '16px' }}
+      >
+        {movie.poster_path && (
+          <Image
+            src={movie.poster_url}
+            alt={movie.title}
+            width={300}
+            height={450}
+            unoptimized
+            className="object-cover w-auto rounded-xl"
+            style={{ maxHeight: '30vh' }}
+          />
+        )}
+        <h2 className="font-bold text-white text-center leading-tight" style={{ fontSize: 'clamp(1rem, 3.5vw, 1.4rem)' }}>
+          {movie.title}
+        </h2>
+        <div className="flex flex-wrap gap-1.5 justify-center">
+          {[String(movie.year), ...movie.genres.slice(0, 2)].map((tag, i) => (
+            <span key={i} className="text-xs px-2.5 py-0.5 text-white" style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '100px' }}>
+              {tag}
+            </span>
+          ))}
+        </div>
+        {/* Budget */}
+        {isRight ? (
+          <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: holResult ? '#FF4D2E' : '#666' }}>
+            {holResult ? formatBudget(holResult.revealed_budget) : '???'}
+          </p>
+        ) : (
+          <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: '#FF4D2E' }}>
+            {left.budget != null ? formatBudget(left.budget) : '—'}
+          </p>
+        )}
+      </div>
+    )
+
+    return (
+      <AnimatedBackground className="min-h-screen text-white">
+        <style>{`
+          @keyframes wicSpin { to { transform: rotate(360deg); } }
+          @keyframes wicFadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes wicPopIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+        `}</style>
+
+        <div className="flex flex-col min-h-screen">
+          {/* Navbar */}
+          <nav className="absolute top-0 left-0 right-0 z-40 flex justify-between items-center text-[0.7rem] sm:text-xs uppercase tracking-widest text-white/70 pl-16 pr-16 pt-6 pb-3 sm:pl-20 sm:pr-24 sm:pt-7">
+            <span>{t.game.round} {currentRound}/{roundCount}</span>
+            {phase === 'guessing' && timerSeconds > 0 && (
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
+                <svg width="48" height="48" viewBox="0 0 56 56">
+                  <circle cx="28" cy="28" r="24" fill="none" stroke="#333" strokeWidth="4" />
+                  <circle cx="28" cy="28" r="24" fill="none" stroke="#FF4D2E" strokeWidth="4" strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 24}
+                    strokeDashoffset={2 * Math.PI * 24 * (1 - timeLeft / timerSeconds)}
+                    transform="rotate(-90 28 28)" style={{ transition: 'stroke-dashoffset 1s linear' }} />
+                  <text x="28" y="28" textAnchor="middle" dominantBaseline="central" fill="#fff" fontWeight="bold" fontSize="18">{timeLeft}</text>
+                </svg>
+              </div>
+            )}
+            <span>{formatScore(totalScore)} {t.game.points}</span>
+          </nav>
+
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 pt-20 pb-6 w-full max-w-4xl mx-auto">
+            {/* Cartes + VS */}
+            <div className="w-full flex flex-col md:flex-row items-stretch gap-3 md:gap-4">
+              {card(left, false)}
+              <div className="flex items-center justify-center font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(1.2rem, 4vw, 2rem)' }}>
+                VS
+              </div>
+              {card(right, true)}
+            </div>
+
+            {/* Zone d'action / révélation */}
+            <div className="w-full max-w-md">
+              {phase === 'guessing' ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleHolGuess('lower')}
+                    disabled={!canAnswer}
+                    className="flex-1 min-h-[52px] py-3 font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 disabled:opacity-40"
+                    style={{
+                      backgroundColor: holChoice === 'lower' ? '#FF4D2E' : 'transparent',
+                      border: '1px solid #FF4D2E',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    ◀ {t.game.lower}
+                  </button>
+                  <button
+                    onClick={() => handleHolGuess('higher')}
+                    disabled={!canAnswer}
+                    className="flex-1 min-h-[52px] py-3 font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 disabled:opacity-40"
+                    style={{
+                      backgroundColor: holChoice === 'higher' ? '#FF4D2E' : 'transparent',
+                      border: '1px solid #FF4D2E',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    {t.game.higher} ▶
+                  </button>
+                </div>
+              ) : phase === 'waiting_others' ? (
+                <div className="flex flex-col items-center gap-3 p-5 text-center" style={{ backgroundColor: 'rgba(26,26,26,0.9)', borderRadius: '10px', border: '1px solid #222' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid #333', borderTopColor: '#FF4D2E', animation: 'wicSpin 0.8s linear infinite' }} />
+                  <p className="text-sm text-muted">{t.game.waitingOthers}</p>
+                  {isHost && showForceAdvance && (
+                    <button onClick={advanceHost} className="mt-1 w-full py-2.5 font-bold text-sm text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.35)', borderRadius: '6px' }}>
+                      {t.game.forceNext} →
+                    </button>
+                  )}
+                  {showStuckHint && <p className="text-xs leading-relaxed" style={{ color: '#666' }}>{t.game.stuckHint}</p>}
+                </div>
+              ) : phase === 'revealing' ? (
+                <div className="flex flex-col items-center gap-2 p-5 text-center" style={{ backgroundColor: 'rgba(26,26,26,0.9)', borderRadius: '10px', border: '1px solid #222', animation: 'wicPopIn 0.25s ease-out' }}>
+                  {holResult && (
+                    <>
+                      <p className="text-xl font-bold" style={{ color: holResult.correct ? '#48D982' : '#FF5C5C' }}>
+                        {holResult.correct ? `${t.game.correct} ✓` : `${t.game.wrong} ✗`}
+                      </p>
+                      <p className="text-3xl font-bold" style={{ color: '#FF4D2E' }}>
+                        +{formatScore(holResult.points)} {t.game.points}
+                      </p>
+                    </>
+                  )}
+                  {gameMode === 'solo' ? (
+                    <button onClick={advanceSolo} className="mt-3 w-full py-3 font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
+                      {nextLabel}
+                    </button>
+                  ) : isHost ? (
+                    <button onClick={advanceHost} className="mt-3 w-full py-3 font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
+                      {nextLabel}
+                    </button>
+                  ) : (
+                    <p className="mt-3 text-xs text-muted">{t.game.waitingHost}</p>
+                  )}
+                </div>
+              ) : null}
+              {error && <p className="text-red-400 text-sm text-center mt-2">{error}</p>}
+            </div>
+          </div>
+        </div>
+      </AnimatedBackground>
+    )
+  }
+
+  // ─── BUDGET GUESS ───────────────────────────────────────────────────────────
+  if (!currentMovie) return null
 
   const dollars = niceRound(posToDollars(sliderPos))
   const zone = budgetZone(dollars, t.game)
@@ -1003,13 +1275,6 @@ export default function GamePage() {
       : currentMovie.overview || currentMovie.overview_fr
   const showSlider = phase === 'guessing'
   const result = roundResult
-  const roundCount = movies.length || DEFAULT_ROUND_COUNT
-  const isLastRound = currentRound >= roundCount
-  const nextLabel = isLastRound
-    ? `${t.game.seeResults} →`
-    : gameMode === 'solo'
-      ? `${t.game.nextMovie} →`
-      : `${t.game.nextRound} →`
 
   return (
     <AnimatedBackground className="min-h-screen md:h-screen md:overflow-hidden text-white">

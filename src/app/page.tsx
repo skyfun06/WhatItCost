@@ -70,7 +70,7 @@ export default function HomePage() {
             {t.home.playSolo}
           </Link>
           <Link
-            href="/settings?mode=multiplayer"
+            href="/lobby/create"
             className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
             style={{
               border: '1px solid rgba(255,255,255,0.35)',

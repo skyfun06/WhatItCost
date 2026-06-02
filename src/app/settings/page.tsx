@@ -3,105 +3,20 @@
 import { Suspense, useState, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import Toggle from '@/components/Toggle'
 import { useTranslation } from '@/hooks/useTranslation'
-
-// ── Valeurs des options ───────────────────────────────────────────────
-// Les libellés des sections Rounds / Timer sont neutres (chiffres) ;
-// Difficulté / Genre sont traduits via le système i18n.
-
-const ROUND_OPTIONS = [3, 5, 10] as const
-
-const TIMER_OPTIONS = [
-  { value: 15, label: '15s' },
-  { value: 30, label: '30s' },
-  { value: 60, label: '60s' },
-  { value: 0, label: '∞' }, // 0 = pas de minuteur
-] as const
-
-const DIFFICULTY_KEYS = ['all', 'popular', 'recent', 'classics'] as const
-const GENRE_KEYS = ['all', 'action', 'drama', 'comedy', 'horror', 'scifi'] as const
-
-type Difficulty = (typeof DIFFICULTY_KEYS)[number]
-type Genre = (typeof GENRE_KEYS)[number]
-
-// ── Toggle façon Discord : une barre unique avec indicateur glissant ──
-
-function Toggle<T extends string | number>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: ReactNode }[]
-  value: T
-  onChange: (v: T) => void
-}) {
-  const count = options.length
-  const index = Math.max(0, options.findIndex((o) => o.value === value))
-
-  return (
-    <div
-      style={{
-        position: 'relative',
-        display: 'flex',
-        backgroundColor: '#111111',
-        border: '1px solid #222222',
-        borderRadius: '8px',
-        padding: '4px',
-      }}
-    >
-      {/* Indicateur glissant — se déplace vers l'option sélectionnée */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          top: '4px',
-          bottom: '4px',
-          left: '4px',
-          width: `calc((100% - 8px) / ${count})`,
-          transform: `translateX(${index * 100}%)`,
-          backgroundColor: '#FF4D2E',
-          borderRadius: '6px',
-          transition: 'all 0.2s ease',
-        }}
-      />
-
-      {options.map((opt) => {
-        const selected = opt.value === value
-        return (
-          <button
-            key={String(opt.value)}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(opt.value)}
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              flex: 1,
-              minWidth: 0,
-              textAlign: 'center',
-              padding: '10px 2px',
-              // S'adapte aux petits écrans (jusqu'à 6 options en ligne) sans déborder
-              fontSize: 'clamp(0.7rem, 2.6vw, 0.85rem)',
-              color: selected ? '#ffffff' : '#888888',
-              fontWeight: selected ? 700 : 400,
-              cursor: 'pointer',
-              borderRadius: '6px',
-              background: 'transparent',
-              border: 'none',
-              whiteSpace: 'nowrap',
-              transition: 'color 0.2s ease',
-            }}
-          >
-            {opt.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+import {
+  ROUND_OPTIONS,
+  TIMER_OPTIONS,
+  DIFFICULTY_KEYS,
+  GENRE_KEYS,
+  GAME_MODE_KEYS,
+  type Difficulty,
+  type Genre,
+  type GameModeType,
+} from '@/lib/gameSettings'
 
 // ── Section (libellé + toggle) ────────────────────────────────────────
-
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
@@ -122,8 +37,6 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────
-
 function SettingsContent() {
   const router = useRouter()
   const { t } = useTranslation()
@@ -134,26 +47,22 @@ function SettingsContent() {
   const [timer, setTimer] = useState<number>(30)
   const [difficulty, setDifficulty] = useState<Difficulty>('all')
   const [genre, setGenre] = useState<Genre>('all')
+  const [gameMode, setGameMode] = useState<GameModeType>('budget_guess')
 
-  function start(mode: 'solo' | 'multi') {
-    const settings = { rounds, timer, difficulty, genre }
-
-    // Persiste pour la session (et pour les écrans suivants du jeu)
-    try {
-      localStorage.setItem('gameSettings', JSON.stringify(settings))
-    } catch {
-      // ignore
-    }
-
-    // Passe aussi les paramètres dans l'URL pour un partage / refresh robuste
+  function start(target: 'solo' | 'multi') {
     const qs = new URLSearchParams({
       rounds: String(rounds),
       timer: String(timer),
       difficulty,
       genre,
+      gameMode,
     }).toString()
-
-    router.push(mode === 'solo' ? `/game?${qs}` : `/lobby/create?${qs}`)
+    try {
+      localStorage.setItem('gameSettings', JSON.stringify({ rounds, timer, difficulty, genre, gameMode }))
+    } catch {
+      // ignore
+    }
+    router.push(target === 'solo' ? `/game?${qs}` : `/lobby/create?${qs}`)
   }
 
   return (
@@ -163,42 +72,29 @@ function SettingsContent() {
     >
       <div
         className="w-full mx-auto p-5 sm:p-8"
-        style={{
-          maxWidth: '560px',
-          backgroundColor: '#1a1a1a',
-          border: '1px solid #222222',
-          borderRadius: '16px',
-        }}
+        style={{ maxWidth: '560px', backgroundColor: '#1a1a1a', border: '1px solid #222222', borderRadius: '16px' }}
       >
-        {/* En-tête */}
-        <span
-          className="text-xs font-bold uppercase"
-          style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.22em' }}
-        >
+        <span className="text-xs font-bold uppercase" style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.22em' }}>
           {t.settings.eyebrow}
         </span>
-        <h1
-          className="text-white font-bold mt-2"
-          style={{ fontSize: 'clamp(1.6rem, 4vw, 2.25rem)', lineHeight: 1.1 }}
-        >
+        <h1 className="text-white font-bold mt-2" style={{ fontSize: 'clamp(1.6rem, 4vw, 2.25rem)', lineHeight: 1.1 }}>
           {t.settings.title}
         </h1>
 
-        {/* Sections de configuration */}
         <div className="flex flex-col" style={{ gap: '20px', marginTop: '28px' }}>
           <Section label={t.settings.rounds}>
-            <Toggle
-              value={rounds}
-              onChange={setRounds}
-              options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))}
-            />
+            <Toggle value={rounds} onChange={setRounds} options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
           </Section>
 
           <Section label={t.settings.timer}>
+            <Toggle value={timer} onChange={setTimer} options={TIMER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+          </Section>
+
+          <Section label={t.settings.gameMode}>
             <Toggle
-              value={timer}
-              onChange={setTimer}
-              options={TIMER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+              value={gameMode}
+              onChange={setGameMode}
+              options={GAME_MODE_KEYS.map((key) => ({ value: key, label: t.settings.gameModes[key] }))}
             />
           </Section>
 
@@ -206,10 +102,7 @@ function SettingsContent() {
             <Toggle
               value={difficulty}
               onChange={setDifficulty}
-              options={DIFFICULTY_KEYS.map((key) => ({
-                value: key,
-                label: t.settings.difficulties[key],
-              }))}
+              options={DIFFICULTY_KEYS.map((key) => ({ value: key, label: t.settings.difficulties[key] }))}
             />
           </Section>
 
@@ -217,21 +110,14 @@ function SettingsContent() {
             <Toggle
               value={genre}
               onChange={setGenre}
-              options={GENRE_KEYS.map((key) => ({
-                value: key,
-                label: t.settings.genres[key],
-              }))}
+              options={GENRE_KEYS.map((key) => ({ value: key, label: t.settings.genres[key] }))}
             />
           </Section>
         </div>
 
         {/* Bouton(s) de lancement — selon le mode choisi sur l'accueil */}
-        <div
-          className="flex flex-col sm:flex-row"
-          style={{ gap: '12px', marginTop: '24px' }}
-        >
+        <div className="flex flex-col sm:flex-row" style={{ gap: '12px', marginTop: '24px' }}>
           {mode === 'solo' ? (
-            // Solo : lance directement la partie
             <button
               type="button"
               onClick={() => start('solo')}
@@ -241,7 +127,6 @@ function SettingsContent() {
               {t.settings.startGame} →
             </button>
           ) : mode === 'multiplayer' ? (
-            // Multijoueur : va vers la création de lobby
             <button
               type="button"
               onClick={() => start('multi')}
@@ -251,7 +136,6 @@ function SettingsContent() {
               {t.settings.createGame} →
             </button>
           ) : (
-            // Fallback (pas de mode) : les deux boutons comme avant
             <>
               <button
                 type="button"

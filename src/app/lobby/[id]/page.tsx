@@ -1,16 +1,38 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/hooks/useTranslation'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import Toggle from '@/components/Toggle'
+import {
+  ROUND_OPTIONS,
+  TIMER_OPTIONS,
+  DIFFICULTY_KEYS,
+  GENRE_KEYS,
+  GAME_MODE_KEYS,
+  DEFAULT_SETTINGS,
+  sanitizeSettings,
+  type GameSettings,
+} from '@/lib/gameSettings'
 
 interface Player {
   id: string
   name: string
   is_host: boolean
   total_score: number
+}
+
+const labelStyle = { letterSpacing: '0.12em', color: '#555555' } as const
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs uppercase" style={labelStyle}>{label}</span>
+      {children}
+    </div>
+  )
 }
 
 export default function LobbyRoomPage() {
@@ -27,8 +49,8 @@ export default function LobbyRoomPage() {
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS)
 
-  // Stable redirect handler to use inside Realtime callback
   const redirectToGame = useCallback(() => {
     console.log(`[WIC] lobby: redirection → /game/${gameId}`)
     router.replace(`/game/${gameId}`)
@@ -42,24 +64,21 @@ export default function LobbyRoomPage() {
       router.replace('/lobby')
       return
     }
-
     setPlayerId(storedPlayerId)
     setIsHost(storedIsHost)
 
-    // Load initial game state
     fetch(`/api/games/${gameId}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.error) { setError(data.error); return }
-        // If host already started, go straight to game
         if (data.game.status === 'playing') { redirectToGame(); return }
         setGameCode(data.game.code)
         setPlayers(data.players)
+        setSettings(sanitizeSettings(data.game.game_settings))
         setLoading(false)
       })
       .catch(() => setError(t.lobby.loadFailed))
 
-    // Realtime: watch players joining + game status change
     const supabase = createClient()
     const channel = supabase
       .channel(`lobby-${gameId}`)
@@ -68,9 +87,8 @@ export default function LobbyRoomPage() {
         { event: 'INSERT', schema: 'public', table: 'players', filter: `game_id=eq.${gameId}` },
         (payload) => {
           setPlayers((prev) => {
-            const newPlayer = payload.new as Player
-            if (prev.some((p) => p.id === newPlayer.id)) return prev
-            return [...prev, newPlayer]
+            const np = payload.new as Player
+            return prev.some((p) => p.id === np.id) ? prev : [...prev, np]
           })
         },
       )
@@ -78,8 +96,10 @@ export default function LobbyRoomPage() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
         (payload) => {
-          const updated = payload.new as { status: string }
-          if (updated.status === 'playing') redirectToGame()
+          const updated = payload.new as { status: string; game_settings?: unknown }
+          if (updated.status === 'playing') { redirectToGame(); return }
+          // Les invités voient les réglages de l'hôte en temps réel
+          if (!storedIsHost) setSettings(sanitizeSettings(updated.game_settings))
         },
       )
       .subscribe((status) => {
@@ -88,14 +108,14 @@ export default function LobbyRoomPage() {
         }
       })
 
-    // Filet de sécurité : si un événement Realtime est perdu, le polling rattrape
-    // (nouveaux joueurs + démarrage de la partie par l'hôte).
+    // Filet de secours (événements Realtime perdus)
     const poll = setInterval(() => {
       fetch(`/api/games/${gameId}`)
         .then((r) => r.json())
         .then((data) => {
           if (data.game?.status === 'playing') { redirectToGame(); return }
           if (Array.isArray(data.players)) setPlayers(data.players)
+          if (!storedIsHost && data.game?.game_settings) setSettings(sanitizeSettings(data.game.game_settings))
         })
         .catch((e) => console.error('lobby poll error', e))
     }, 3000)
@@ -104,7 +124,19 @@ export default function LobbyRoomPage() {
       clearInterval(poll)
       supabase.removeChannel(channel)
     }
-  }, [gameId, router, redirectToGame])
+  }, [gameId, router, redirectToGame, t.lobby.loadFailed])
+
+  // L'hôte change un réglage : maj locale immédiate + push serveur (propagé aux invités)
+  function changeSetting<K extends keyof GameSettings>(key: K, value: GameSettings[K]) {
+    if (!isHost) return
+    const next = { ...settings, [key]: value }
+    setSettings(next)
+    fetch(`/api/games/${gameId}/settings`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId, settings: next }),
+    }).catch((e) => console.error('[WIC] lobby: settings update', e))
+  }
 
   async function handleStart() {
     if (!playerId) return
@@ -124,9 +156,6 @@ export default function LobbyRoomPage() {
         setStarting(false)
         return
       }
-      // Filet : la redirection passe normalement par l'événement Realtime
-      // games UPDATE, mais on redirige aussi directement au cas où il serait perdu.
-      console.log('[WIC] lobby: start OK → redirection directe')
       redirectToGame()
     } catch (e) {
       console.error('[WIC] lobby: erreur réseau au start', e)
@@ -145,116 +174,97 @@ export default function LobbyRoomPage() {
 
   if (loading && !error) {
     return (
-      <AnimatedBackground
-        className="min-h-screen flex items-center justify-center text-muted text-sm"
-        style={{ backgroundColor: '#111111' }}
-      >
+      <AnimatedBackground className="min-h-screen flex items-center justify-center text-muted text-sm" style={{ backgroundColor: '#111111' }}>
         {t.common.loading}
       </AnimatedBackground>
     )
   }
-
   if (error) {
     return (
-      <AnimatedBackground
-        className="min-h-screen flex flex-col items-center justify-center gap-4 text-white px-6"
-        style={{ backgroundColor: '#111111' }}
-      >
+      <AnimatedBackground className="min-h-screen flex flex-col items-center justify-center gap-4 text-white px-6" style={{ backgroundColor: '#111111' }}>
         <p className="text-red-400">{error}</p>
-        <button onClick={() => router.push('/lobby')} className="text-sm text-muted underline">
-          {t.common.back}
-        </button>
+        <button onClick={() => router.push('/lobby')} className="text-sm text-muted underline">{t.common.back}</button>
       </AnimatedBackground>
     )
   }
 
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${gameCode}` : ''
 
-  const labelStyle = { letterSpacing: '0.12em', color: '#555555' } as const
-
   return (
-    <AnimatedBackground
-      className="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12"
-      style={{ backgroundColor: '#111111' }}
-    >
+    <AnimatedBackground className="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12" style={{ backgroundColor: '#111111' }}>
       <div
-        className="w-full mx-auto flex flex-col items-center text-white p-6 sm:p-10"
-        style={{
-          maxWidth: '480px',
-          backgroundColor: '#1a1a1a',
-          border: '1px solid #222222',
-          borderRadius: '16px',
-          gap: '28px',
-        }}
+        className="w-full mx-auto flex flex-col text-white p-6 sm:p-8"
+        style={{ maxWidth: '760px', backgroundColor: '#1a1a1a', border: '1px solid #222222', borderRadius: '16px', gap: '24px' }}
       >
         {/* Game code */}
         <div className="flex flex-col items-center gap-2 text-center">
           <span className="text-xs uppercase" style={labelStyle}>{t.lobby.gameCode}</span>
-          <span
-            className="font-bold text-white"
-            style={{ fontSize: 'clamp(3rem, 13vw, 4.5rem)', letterSpacing: '0.15em', lineHeight: 1 }}
-          >
-            {gameCode}
-          </span>
+          <span className="font-bold text-white" style={{ fontSize: 'clamp(2.5rem, 11vw, 4rem)', letterSpacing: '0.15em', lineHeight: 1 }}>{gameCode}</span>
         </div>
 
-        {/* Join link */}
-        <div className="w-full flex flex-col gap-2">
+        {/* Invite link */}
+        <div className="w-full flex flex-col gap-1.5">
           <span className="text-xs uppercase" style={labelStyle}>{t.lobby.inviteLink}</span>
           <div className="flex gap-2">
-            <input
-              readOnly
-              value={joinUrl}
-              className="flex-1 min-w-0 text-xs text-muted focus:outline-none"
-              style={{
-                backgroundColor: '#111111',
-                border: '1px solid #333333',
-                borderRadius: '6px',
-                padding: '12px 16px',
-              }}
-            />
-            <button
-              onClick={copyLink}
-              className="whitespace-nowrap font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 hover:bg-white/[0.06]"
-              style={{
-                border: '1px solid rgba(255,255,255,0.5)',
-                borderRadius: '6px',
-                padding: '12px 16px',
-              }}
-            >
+            <input readOnly value={joinUrl} className="flex-1 min-w-0 text-xs text-muted focus:outline-none"
+              style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: '6px', padding: '12px 16px' }} />
+            <button onClick={copyLink} className="whitespace-nowrap font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 hover:bg-white/[0.06]"
+              style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px', padding: '12px 16px' }}>
               {copied ? '✓' : t.lobby.copy}
             </button>
           </div>
         </div>
 
-        {/* Players list */}
-        <div className="w-full flex flex-col gap-3">
-          <span className="text-xs uppercase" style={labelStyle}>
-            {players.length} {players.length > 1 ? t.lobby.players : t.lobby.player}
-          </span>
-          <div className="flex flex-col gap-2">
-            {players.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-3"
-                style={{
-                  backgroundColor: '#111111',
-                  border: '1px solid #333333',
-                  borderRadius: '6px',
-                  padding: '12px 16px',
-                }}
-              >
-                <span className="font-medium text-white">{p.name}</span>
-                {p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.host}</span>}
-                {p.id === playerId && !p.is_host && (
-                  <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.you}</span>
-                )}
-              </div>
-            ))}
+        {/* Settings (left) + Players (right) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Settings panel */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs uppercase font-bold" style={{ ...labelStyle, color: 'rgba(255,255,255,0.45)' }}>{t.lobby.settings}</span>
+              {!isHost && <span className="text-xs" style={{ color: '#555555' }}>{t.lobby.configuredByHost}</span>}
+            </div>
+
+            <Field label={t.settings.rounds}>
+              <Toggle value={settings.rounds} disabled={!isHost} onChange={(v) => changeSetting('rounds', v)}
+                options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
+            </Field>
+            <Field label={t.settings.timer}>
+              <Toggle value={settings.timer} disabled={!isHost} onChange={(v) => changeSetting('timer', v)}
+                options={TIMER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
+            </Field>
+            <Field label={t.settings.gameMode}>
+              <Toggle value={settings.gameMode} disabled={!isHost} onChange={(v) => changeSetting('gameMode', v)}
+                options={GAME_MODE_KEYS.map((k) => ({ value: k, label: t.settings.gameModes[k] }))} />
+            </Field>
+            <Field label={t.settings.difficulty}>
+              <Toggle value={settings.difficulty} disabled={!isHost} onChange={(v) => changeSetting('difficulty', v)}
+                options={DIFFICULTY_KEYS.map((k) => ({ value: k, label: t.settings.difficulties[k] }))} />
+            </Field>
+            <Field label={t.settings.genre}>
+              <Toggle value={settings.genre} disabled={!isHost} onChange={(v) => changeSetting('genre', v)}
+                options={GENRE_KEYS.map((k) => ({ value: k, label: t.settings.genres[k] }))} />
+            </Field>
+          </div>
+
+          {/* Players */}
+          <div className="flex flex-col gap-3">
+            <span className="text-xs uppercase" style={labelStyle}>
+              {players.length} {players.length > 1 ? t.lobby.players : t.lobby.player}
+            </span>
+            <div className="flex flex-col gap-2">
+              {players.map((p) => (
+                <div key={p.id} className="flex items-center gap-3"
+                  style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: '6px', padding: '12px 16px' }}>
+                  <span className="font-medium text-white">{p.name}</span>
+                  {p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.host}</span>}
+                  {p.id === playerId && !p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.you}</span>}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Host controls */}
+        {/* Start */}
         {isHost ? (
           <button
             onClick={handleStart}
@@ -265,7 +275,7 @@ export default function LobbyRoomPage() {
             {starting ? t.lobby.starting : t.lobby.start}
           </button>
         ) : (
-          <p className="text-sm" style={{ color: '#555555' }}>{t.lobby.waitingStart}</p>
+          <p className="text-sm text-center" style={{ color: '#555555' }}>{t.lobby.waitingStart}</p>
         )}
       </div>
     </AnimatedBackground>

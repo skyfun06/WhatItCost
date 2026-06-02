@@ -18,29 +18,22 @@ export default function LobbyCreatePage() {
     setLoading(true)
     setError(null)
     try {
-      // Paramètres choisis sur la page Réglages, transmis via l'URL.
-      const sp = new URLSearchParams(window.location.search)
+      // Multijoueur : on crée juste la partie (waiting). Les réglages et les films
+      // sont gérés dans le lobby puis au démarrage — pas de films ici.
       const res = await fetch('/api/games/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'multiplayer',
-          playerName: trimmed,
-          rounds: Number(sp.get('rounds')) || undefined,
-          timer: sp.get('timer') !== null ? Number(sp.get('timer')) : undefined,
-          difficulty: sp.get('difficulty') ?? undefined,
-          genre: sp.get('genre') ?? undefined,
-        }),
+        body: JSON.stringify({ mode: 'multiplayer', playerName: trimmed }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
       localStorage.setItem('wic_game_id', data.gameId)
       localStorage.setItem('wic_player_id', data.playerId)
-      localStorage.setItem('wic_movies', JSON.stringify(data.movies))
-      localStorage.setItem('wic_timer', String(data.timerSeconds ?? 30))
       localStorage.setItem('wic_game_mode', 'multiplayer')
       localStorage.setItem('wic_is_host', 'true')
+      // wic_movies / wic_timer / wic_game_mode_type seront chargés depuis le serveur
+      // par la page de jeu une fois la partie démarrée.
 
       router.replace(`/lobby/${data.gameId}`)
     } catch (e) {

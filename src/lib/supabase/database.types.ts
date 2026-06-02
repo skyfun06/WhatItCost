@@ -82,6 +82,7 @@ export interface Database {
           timer_seconds: number
           difficulty: string
           genre: string
+          game_settings: Json
           rematch_game_id: string | null
           locale: 'fr' | 'en'
           created_at: string
@@ -98,6 +99,7 @@ export interface Database {
           timer_seconds?: number
           difficulty?: string
           genre?: string
+          game_settings?: Json
           rematch_game_id?: string | null
           locale?: 'fr' | 'en'
           created_at?: string
@@ -114,6 +116,7 @@ export interface Database {
           timer_seconds?: number
           difficulty?: string
           genre?: string
+          game_settings?: Json
           rematch_game_id?: string | null
           locale?: 'fr' | 'en'
           created_at?: string
