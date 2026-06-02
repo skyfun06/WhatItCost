@@ -106,7 +106,7 @@ export async function POST(
     // by the player (solo) or the host (multiplayer) via /api/games/[gameId]/advance.
     // This keeps the score reveal on screen until someone chooses to move on.
 
-    return NextResponse.json({ score, actual_budget: movie.budget, accuracy })
+    return NextResponse.json({ score, actual_budget: movie.budget, accuracy, guess_amount })
   } catch (err) {
     console.error('Guess error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

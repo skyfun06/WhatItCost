@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, type ReactNode } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useTranslation } from '@/hooks/useTranslation'
 
@@ -124,9 +124,11 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
 
 // ── Page ──────────────────────────────────────────────────────────────
 
-export default function SettingsPage() {
+function SettingsContent() {
   const router = useRouter()
   const { t } = useTranslation()
+  const searchParams = useSearchParams()
+  const mode = searchParams.get('mode') // 'solo' | 'multiplayer' | null
 
   const [rounds, setRounds] = useState<number>(5)
   const [timer, setTimer] = useState<number>(30)
@@ -223,39 +225,63 @@ export default function SettingsPage() {
           </Section>
         </div>
 
-        {/* Boutons de lancement — empilés sur mobile, côte à côte sur sm+ */}
+        {/* Bouton(s) de lancement — selon le mode choisi sur l'accueil */}
         <div
           className="flex flex-col sm:flex-row"
           style={{ gap: '12px', marginTop: '24px' }}
         >
-          <button
-            type="button"
-            onClick={() => start('solo')}
-            className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
-            style={{
-              padding: '12px 20px',
-              fontSize: '0.8rem',
-              backgroundColor: '#FF4D2E',
-              borderRadius: '8px',
-            }}
-          >
-            {t.settings.playSolo} →
-          </button>
-          <button
-            type="button"
-            onClick={() => start('multi')}
-            className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
-            style={{
-              padding: '12px 20px',
-              fontSize: '0.8rem',
-              border: '1px solid rgba(255,255,255,0.35)',
-              borderRadius: '8px',
-            }}
-          >
-            {t.settings.playFriends} →
-          </button>
+          {mode === 'solo' ? (
+            // Solo : lance directement la partie
+            <button
+              type="button"
+              onClick={() => start('solo')}
+              className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
+              style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: '#FF4D2E', borderRadius: '8px' }}
+            >
+              {t.settings.startGame} →
+            </button>
+          ) : mode === 'multiplayer' ? (
+            // Multijoueur : va vers la création de lobby
+            <button
+              type="button"
+              onClick={() => start('multi')}
+              className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
+              style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: '#FF4D2E', borderRadius: '8px' }}
+            >
+              {t.settings.createGame} →
+            </button>
+          ) : (
+            // Fallback (pas de mode) : les deux boutons comme avant
+            <>
+              <button
+                type="button"
+                onClick={() => start('solo')}
+                className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
+                style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: '#FF4D2E', borderRadius: '8px' }}
+              >
+                {t.settings.playSolo} →
+              </button>
+              <button
+                type="button"
+                onClick={() => start('multi')}
+                className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
+                style={{ padding: '12px 20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.35)', borderRadius: '8px' }}
+              >
+                {t.settings.playFriends} →
+              </button>
+            </>
+          )}
         </div>
       </div>
     </AnimatedBackground>
+  )
+}
+
+// useSearchParams() doit être sous une frontière Suspense (App Router)
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsContent />
+    </Suspense>
   )
 }

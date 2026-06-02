@@ -80,6 +80,9 @@ export interface Database {
           movie_ids: number[]
           current_round: number
           timer_seconds: number
+          difficulty: string
+          genre: string
+          rematch_game_id: string | null
           locale: 'fr' | 'en'
           created_at: string
           finished_at: string | null
@@ -93,6 +96,9 @@ export interface Database {
           movie_ids: number[]
           current_round?: number
           timer_seconds?: number
+          difficulty?: string
+          genre?: string
+          rematch_game_id?: string | null
           locale?: 'fr' | 'en'
           created_at?: string
           finished_at?: string | null
@@ -106,6 +112,9 @@ export interface Database {
           movie_ids?: number[]
           current_round?: number
           timer_seconds?: number
+          difficulty?: string
+          genre?: string
+          rematch_game_id?: string | null
           locale?: 'fr' | 'en'
           created_at?: string
           finished_at?: string | null
@@ -122,6 +131,7 @@ export interface Database {
           name: string
           is_host: boolean
           total_score: number
+          source_player_id: string | null
           joined_at: string
           [key: string]: unknown
         }
@@ -131,6 +141,7 @@ export interface Database {
           name: string
           is_host?: boolean
           total_score?: number
+          source_player_id?: string | null
           joined_at?: string
           [key: string]: unknown
         }
@@ -140,6 +151,7 @@ export interface Database {
           name?: string
           is_host?: boolean
           total_score?: number
+          source_player_id?: string | null
           joined_at?: string
           [key: string]: unknown
         }

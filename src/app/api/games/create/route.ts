@@ -70,6 +70,8 @@ export async function POST(request: Request) {
         movie_ids: movies.map((m) => m.id),
         current_round: 1,
         timer_seconds: timer,
+        difficulty,
+        genre,
         locale: 'fr',
       })
       .select()

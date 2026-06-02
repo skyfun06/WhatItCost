@@ -38,6 +38,8 @@ export const en = {
     genre: 'Genre',
     playSolo: 'Play solo',
     playFriends: 'Play with friends',
+    startGame: 'Start game',
+    createGame: 'Create game',
     difficulties: {
       all: 'All',
       popular: 'Popular',
@@ -59,6 +61,9 @@ export const en = {
     of: 'of',
     points: 'pts',
     submit: 'Submit',
+    yourGuess: 'Your guess',
+    gap: 'Off by',
+    rematch: 'Play again together',
     whatBudget: 'What was the budget?',
     sliderHint: 'Set the slider on the left, then submit your guess.',
     director: 'DIRECTOR',

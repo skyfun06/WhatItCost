@@ -63,14 +63,14 @@ export default function HomePage() {
           style={{ width: '100%', maxWidth: '480px' }}
         >
           <Link
-            href="/settings"
+            href="/settings?mode=solo"
             className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
             style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
           >
             {t.home.playSolo}
           </Link>
           <Link
-            href="/settings"
+            href="/settings?mode=multiplayer"
             className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
             style={{
               border: '1px solid rgba(255,255,255,0.35)',

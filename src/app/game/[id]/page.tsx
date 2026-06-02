@@ -27,6 +27,7 @@ interface RoundResult {
   score: number
   actual_budget: number
   accuracy: number
+  guess: number
 }
 
 interface PlayerScore {
@@ -113,6 +114,12 @@ function budgetZone(d: number, g: Translations['game']): { label: string; color:
   return { label: g.zones.blockbuster, color: '#FF4D2E' }
 }
 
+// Écart en % entre l'estimation et le budget réel
+function gapPercent(r: { guess: number; actual_budget: number }): number {
+  if (!r.actual_budget) return 0
+  return Math.round((Math.abs(r.guess - r.actual_budget) / r.actual_budget) * 100)
+}
+
 const DEFAULT_POS = dollarsToPos(10_000_000) // start around $10M
 
 function initials(name: string): string {
@@ -178,9 +185,54 @@ export default function GamePage() {
   const playerIdRef = useRef<string | null>(null)
   // Garde anti double-avance côté hôte (le PATCH advance n'est pas atomique)
   const advancingRef = useRef(false)
+  // Garde anti double-redirection vers la partie de revanche
+  const rematchRedirectingRef = useRef(false)
   useEffect(() => { currentRoundRef.current = currentRound }, [currentRound])
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { playerIdRef.current = playerId }, [playerId])
+
+  // Revanche : bascule ce joueur vers le nouveau lobby. Retrouve son nouveau
+  // player_id via source_player_id, récupère films + timer, puis redirige.
+  const goToRematch = useCallback(async (newGameId: string) => {
+    if (rematchRedirectingRef.current) return
+    rematchRedirectingRef.current = true
+    console.log(`[WIC] rematch: bascule vers /lobby/${newGameId}`)
+    try {
+      const supabase = createClient() as any
+      let newPlayerId: string | null = null
+      let newIsHost = false
+      if (playerIdRef.current) {
+        const mine = await supabase
+          .from('players')
+          .select('id, is_host')
+          .eq('game_id', newGameId)
+          .eq('source_player_id', playerIdRef.current)
+          .maybeSingle()
+        if (mine.error) console.error('[WIC] rematch: lookup nouveau joueur', mine.error)
+        newPlayerId = mine.data?.id ?? null
+        newIsHost = mine.data?.is_host ?? false
+      }
+
+      const res = await fetch(`/api/games/${newGameId}`)
+      const data = res.ok ? await res.json() : null
+
+      if (data?.movies && newPlayerId) {
+        localStorage.setItem('wic_game_id', newGameId)
+        localStorage.setItem('wic_player_id', newPlayerId)
+        localStorage.setItem('wic_movies', JSON.stringify(data.movies))
+        localStorage.setItem('wic_timer', String(data.game?.timer_seconds ?? 30))
+        localStorage.setItem('wic_game_mode', 'multiplayer')
+        localStorage.setItem('wic_is_host', newIsHost ? 'true' : 'false')
+        router.replace(`/lobby/${newGameId}`)
+      } else {
+        console.error('[WIC] rematch: données incomplètes → fallback /lobby', { hasMovies: !!data?.movies, newPlayerId })
+        router.replace('/lobby')
+      }
+    } catch (e) {
+      console.error('[WIC] goToRematch error', e)
+      rematchRedirectingRef.current = false // autorise un nouvel essai
+    }
+  }, [router])
 
   // ── Réconciliation multijoueur ────────────────────────────────────────────
   // Source de vérité = l'état serveur. Appelée par les événements Realtime
@@ -188,7 +240,6 @@ export default function GamePage() {
   // Décide la phase à partir de : statut, current_round serveur, et nombre de
   // réponses pour le round courant. Idempotente.
   const reconcile = useCallback(async () => {
-    if (phaseRef.current === 'finished') return
     try {
       console.log(`[WIC] reconcile: GET /api/games/${gameId} (phase=${phaseRef.current}, ref=${currentRoundRef.current})`)
       const res = await fetch(`/api/games/${gameId}`)
@@ -202,6 +253,18 @@ export default function GamePage() {
         console.error('[WIC] reconcile: réponse sans game', data)
         return
       }
+
+      // Revanche prioritaire (fonctionne même après "finished") : redirige tout
+      // le monde vers le nouveau lobby dès que le lien est posé.
+      if (game.rematch_game_id) {
+        console.log(`[WIC] reconcile: rematch détecté → ${game.rematch_game_id}`)
+        goToRematch(game.rematch_game_id)
+        return
+      }
+
+      // Une fois la partie terminée, plus rien à réconcilier (hors revanche ci-dessus)
+      if (phaseRef.current === 'finished') return
+
       console.log(`[WIC] reconcile: status=${game.status}, current_round=${game.current_round}, players=${data.players?.length ?? '?'}`)
 
       // Le minuteur est porté par la partie (défini par l'hôte)
@@ -275,7 +338,7 @@ export default function GamePage() {
     } catch (e) {
       console.error('[WIC] reconcile error', e)
     }
-  }, [gameId])
+  }, [gameId, goToRematch])
 
   useEffect(() => {
     const storedGameId = localStorage.getItem('wic_game_id')
@@ -407,7 +470,12 @@ export default function GamePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
 
-      const result: RoundResult = data
+      const result: RoundResult = {
+        score: data.score,
+        actual_budget: data.actual_budget,
+        accuracy: data.accuracy,
+        guess: data.guess_amount ?? guessAmount,
+      }
       setRoundResult(result)
       setScores((prev) => [...prev, result.score])
 
@@ -479,6 +547,29 @@ export default function GamePage() {
       setTimeout(() => { advancingRef.current = false }, 500)
     }
   }, [gameId, playerId, reconcile])
+
+  // Revanche (écran final, multijoueur) : crée la nouvelle partie côté serveur
+  // (idempotent — même si plusieurs joueurs cliquent) puis bascule ce joueur.
+  // Les autres sont redirigés via la détection rematch de reconcile.
+  const handleRematch = useCallback(async () => {
+    if (rematchRedirectingRef.current) return
+    try {
+      console.log('[WIC] rematch: POST /rematch')
+      const res = await fetch(`/api/games/${gameId}/rematch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId: playerIdRef.current }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data.gameId) {
+        console.error('[WIC] rematch: échec', res.status, data)
+        return
+      }
+      goToRematch(data.gameId)
+    } catch (e) {
+      console.error('[WIC] handleRematch error', e)
+    }
+  }, [gameId, goToRematch])
 
   // Capture la carte-score (visible dans le modal) en blob PNG via html2canvas.
   const captureScoreCard = useCallback(async (): Promise<Blob | null> => {
@@ -709,13 +800,23 @@ export default function GamePage() {
 
           {/* Buttons */}
           <div className="flex flex-wrap justify-center gap-3 mt-2 w-full">
-            <button
-              onClick={() => router.push(gameMode === 'multiplayer' ? '/lobby' : '/game')}
-              className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
-              style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
-            >
-              {t.game.playAgain}
-            </button>
+            {gameMode === 'multiplayer' ? (
+              <button
+                onClick={handleRematch}
+                className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
+                style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+              >
+                {t.game.rematch}
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push('/game')}
+                className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
+                style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+              >
+                {t.game.playAgain}
+              </button>
+            )}
             <button
               onClick={() => setShareModalOpen(true)}
               className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
@@ -1073,11 +1174,15 @@ export default function GamePage() {
                         +{formatScore(result.score)} {t.game.points}
                       </p>
                       <p className="text-sm text-muted mt-2">
-                        {t.game.actualBudget} :{' '}
-                        <span className="text-white font-semibold">{formatBudget(result.actual_budget)}</span>
+                        {t.game.yourGuess} :{' '}
+                        <span className="text-white font-semibold">{formatBudget(result.guess)}</span>
                       </p>
                       <p className="text-sm text-muted">
-                        {t.game.accuracy} : <span className="text-white">{result.accuracy}%</span>
+                        {t.game.actualBudget} :{' '}
+                        <span className="font-semibold" style={{ color: '#FF4D2E' }}>{formatBudget(result.actual_budget)}</span>
+                      </p>
+                      <p className="text-sm text-muted">
+                        {t.game.gap} : <span className="text-white">{gapPercent(result)}%</span>
                       </p>
                     </>
                   )}
@@ -1231,11 +1336,14 @@ export default function GamePage() {
             </p>
 
             <p className="text-white mt-4">
-              {t.game.actualBudget} :{' '}
-              <span className="font-semibold">{formatBudget(result.actual_budget)}</span>
+              {t.game.yourGuess} :{' '}
+              <span className="font-semibold">{formatBudget(result.guess)}</span>
             </p>
-            <p className="text-muted">
-              {t.game.accuracy} : <span>{result.accuracy}%</span>
+            <p className="mt-1 font-semibold" style={{ color: '#FF4D2E' }}>
+              {t.game.actualBudget} : {formatBudget(result.actual_budget)}
+            </p>
+            <p className="text-muted mt-1">
+              {t.game.gap} : <span>{gapPercent(result)}%</span>
             </p>
 
             <div style={{ borderTop: '1px solid #333', margin: '24px 0 0' }} />

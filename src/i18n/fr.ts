@@ -38,6 +38,8 @@ export const fr = {
     genre: 'Genre',
     playSolo: 'Jouer solo',
     playFriends: 'Jouer avec des amis',
+    startGame: 'Lancer la partie',
+    createGame: 'Créer la partie',
     difficulties: {
       all: 'Tous',
       popular: 'Populaires',
@@ -59,6 +61,9 @@ export const fr = {
     of: 'sur',
     points: 'pts',
     submit: 'Valider',
+    yourGuess: 'Ton estimation',
+    gap: 'Écart',
+    rematch: 'Rejouer ensemble',
     whatBudget: 'Quel était le budget ?',
     sliderHint: 'Règle le slider à gauche, puis valide ton estimation.',
     director: 'RÉALISATEUR',
