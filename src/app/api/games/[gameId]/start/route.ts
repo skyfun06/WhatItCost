@@ -14,8 +14,13 @@ export async function PATCH(
   { params }: { params: { gameId: string } },
 ) {
   try {
-    const { playerId } = await request.json()
+    const body = await request.json()
+    const { playerId } = body
     const { gameId } = params
+    // Films déjà joués sur le navigateur de l'hôte, à exclure du tirage.
+    const excludeIds: number[] = Array.isArray(body.excludeIds)
+      ? body.excludeIds.filter((n: unknown) => Number.isInteger(n))
+      : []
     console.log(`[WIC] /start: gameId=${gameId}, playerId=${playerId}`)
 
     if (!playerId) {
@@ -64,7 +69,7 @@ export async function PATCH(
     const movies = await fetchRandomMoviesWithBudget(count, {
       genre: settings.genre,
       difficulty: settings.difficulty,
-    })
+    }, excludeIds)
     if (movies.length < count) {
       console.error(`[WIC] /start: pas assez de films (${movies.length}/${count})`)
       return NextResponse.json(

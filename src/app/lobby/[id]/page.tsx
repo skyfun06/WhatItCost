@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/hooks/useTranslation'
+import { getWatchedMovieIds } from '@/lib/watchedMovies'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import Toggle from '@/components/Toggle'
 import {
@@ -148,7 +149,8 @@ export default function LobbyRoomPage() {
       const res = await fetch(`/api/games/${gameId}/start`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId }),
+        // excludeIds : films déjà joués sur le navigateur de l'hôte, à ne pas re-tirer.
+        body: JSON.stringify({ playerId, excludeIds: getWatchedMovieIds() }),
       })
       console.log(`[WIC] lobby: PATCH /start → ${res.status}`)
       if (!res.ok) {

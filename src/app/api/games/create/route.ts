@@ -20,6 +20,10 @@ export async function POST(request: Request) {
     typeof body.playerName === 'string' && body.playerName.trim() ? body.playerName.trim() : 'Joueur'
 
   const settings = sanitizeSettings(body)
+  // Films déjà joués sur ce navigateur (localStorage côté client) à exclure du tirage.
+  const excludeIds: number[] = Array.isArray(body.excludeIds)
+    ? body.excludeIds.filter((n: unknown) => Number.isInteger(n))
+    : []
 
   try {
     const db = createClient() as any
@@ -75,7 +79,7 @@ export async function POST(request: Request) {
     const movies = await fetchRandomMoviesWithBudget(count, {
       genre: settings.genre,
       difficulty: settings.difficulty,
-    })
+    }, excludeIds)
     if (movies.length < count) {
       return NextResponse.json(
         { error: 'Not enough movies for these settings. Try a broader genre/difficulty.' },

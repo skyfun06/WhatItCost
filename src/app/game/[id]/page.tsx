@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatBudget, formatScore } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useTranslation } from '@/hooks/useTranslation'
+import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { type Translations } from '@/i18n'
 
 interface GameMovie {
@@ -498,6 +499,12 @@ export default function GamePage() {
       setRoundScores([]) // évite un flash des scores du round précédent
     }
   }, [phase, currentRound])
+
+  // Mémorise les films de cette partie (solo : chargés au mount ; multi : via
+  // reconcile) pour les exclure des prochains tirages → moins de répétitions.
+  useEffect(() => {
+    if (movies.length) recordWatchedMovieIds(movies.map((m) => m.id))
+  }, [movies])
 
   const currentMovie = movies[currentRound - 1]
   const totalScore = scores.reduce((a, b) => a + b, 0)

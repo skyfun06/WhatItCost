@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/hooks/useTranslation'
+import { getWatchedMovieIds } from '@/lib/watchedMovies'
 
 export default function SoloGamePage() {
   const router = useRouter()
@@ -25,7 +26,8 @@ export default function SoloGamePage() {
         const res = await fetch('/api/games/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(settings),
+          // excludeIds : films déjà joués sur ce navigateur, à ne pas re-tirer.
+          body: JSON.stringify({ ...settings, excludeIds: getWatchedMovieIds() }),
         })
         const data = await res.json()
 

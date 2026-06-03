@@ -47,9 +47,16 @@ export interface MovieWithBudget {
   overview_fr: string
 }
 
+// Profondeur max explorée dans /discover. Élargit le vivier ~×10 vs. la seule
+// première page : deux parties consécutives retombent bien plus rarement sur les
+// mêmes films. Plafonné car au-delà les films deviennent obscurs (peu de budget
+// renseigné) et le risque de pages vides augmente.
+const MAX_DISCOVER_PAGE = 10
+
 export async function fetchRandomMoviesWithBudget(
   count = 5,
   filters: MovieFilters = {},
+  excludeIds: number[] = [],
 ): Promise<MovieWithBudget[]> {
   const genreId =
     filters.genre && filters.genre !== 'all' ? TMDB_GENRE_IDS[filters.genre] : undefined
@@ -57,17 +64,42 @@ export async function fetchRandomMoviesWithBudget(
     filters.difficulty && filters.difficulty !== 'all' ? filters.difficulty : undefined
   const discoverFilters: DiscoverFilters = { genreId, difficulty }
 
-  // Vivier proportionnel au nombre de rounds : il faut assez de candidats pour
-  // en trouver `count` avec budget > 0 après filtrage (genre/difficulté réduisent
-  // encore le pool). ~20 résultats/page.
-  const pageCount = Math.min(8, Math.max(4, count))
+  // Première page : on l'utilise (résultats réels) ET elle nous donne le nombre de
+  // pages réellement disponibles pour ces filtres (un genre/difficulté étroit en a
+  // moins), pour ne pas tirer des pages vides au-delà.
+  const firstPage = await discoverMoviesWithBudget(1, 'fr-FR', discoverFilters)
+  const availablePages = Math.min(MAX_DISCOVER_PAGE, Math.max(1, firstPage.total_pages))
+
+  // Vivier proportionnel au nombre de rounds (~20 résultats/page) MAIS piochés sur
+  // des pages AU HASARD parmi celles disponibles, au lieu de toujours les premières
+  // (les plus populaires) → c'est ce qui casse la répétition entre parties.
+  const pageCount = Math.min(availablePages, Math.max(4, count))
+  const chosenPages = shuffle(
+    Array.from({ length: availablePages }, (_, i) => i + 1),
+  ).slice(0, pageCount)
+
   const pages = await Promise.all(
-    Array.from({ length: pageCount }, (_, i) =>
-      discoverMoviesWithBudget(i + 1, 'fr-FR', discoverFilters),
+    chosenPages.map((p) =>
+      p === 1 ? firstPage : discoverMoviesWithBudget(p, 'fr-FR', discoverFilters),
     ),
   )
 
-  const candidates = shuffle(pages.flatMap((p) => p.results))
+  // Déduplique le vivier par ID (Fix 3 : une partie ne peut pas présenter deux
+  // fois le même film), puis le trie en deux tiers : films jamais joués d'abord,
+  // films déjà joués en repli. L'exclusion (Fix 2) est ainsi « best-effort » :
+  // on évite les répétitions tant que possible, mais on ne tombe JAMAIS sous
+  // `count` à cause d'elle (sinon un filtre étroit + historique chargé → 503).
+  const excluded = new Set(excludeIds)
+  const seen = new Set<number>()
+  const unique = pages.flatMap((p) => p.results).filter((m) => {
+    if (seen.has(m.id)) return false
+    seen.add(m.id)
+    return true
+  })
+  const candidates = [
+    ...shuffle(unique.filter((m) => !excluded.has(m.id))),
+    ...shuffle(unique.filter((m) => excluded.has(m.id))),
+  ]
   const valid: MovieWithBudget[] = []
 
   for (let i = 0; i < candidates.length && valid.length < count; i += 10) {
