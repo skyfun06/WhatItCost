@@ -25,11 +25,12 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
       <span
         style={{
           display: 'block',
-          fontSize: '0.7rem',
+          fontSize: '0.72rem',
           textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          color: '#555555',
-          marginBottom: '6px',
+          letterSpacing: '0.18em',
+          fontWeight: 600,
+          color: '#ffffff',
+          marginBottom: '8px',
         }}
       >
         {label}
@@ -85,7 +86,7 @@ function SettingsContent() {
           {t.settings.title}
         </h1>
 
-        <div className="flex flex-col" style={{ gap: '20px', marginTop: '28px' }}>
+        <div className="flex flex-col" style={{ gap: '28px', marginTop: '28px' }}>
           <Section label={t.settings.rounds}>
             <Toggle value={rounds} onChange={setRounds} options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
           </Section>
