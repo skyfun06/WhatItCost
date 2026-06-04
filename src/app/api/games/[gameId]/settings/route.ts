@@ -40,10 +40,10 @@ export async function PATCH(
     const { error: updateErr } = await db
       .from('games')
       .update({
+        // Source de vérité = game_settings (JSONB, multi-sélection genres/difficultés).
+        // Colonnes genre/difficulty legacy laissées telles quelles.
         game_settings: settings,
         timer_seconds: settings.timer,
-        difficulty: settings.difficulty,
-        genre: settings.genre,
       })
       .eq('id', gameId)
       .eq('status', 'waiting') // pas de changement une fois la partie lancée

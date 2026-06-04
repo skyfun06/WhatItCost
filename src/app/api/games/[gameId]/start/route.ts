@@ -67,8 +67,8 @@ export async function PATCH(
     console.log(`[WIC] /start: réglages`, settings, `→ ${count} films`)
 
     const movies = await fetchRandomMoviesWithBudget(count, {
-      genre: settings.genre,
-      difficulty: settings.difficulty,
+      genres: settings.genres,
+      difficulties: settings.difficulties,
     }, excludeIds)
     if (movies.length < count) {
       console.error(`[WIC] /start: pas assez de films (${movies.length}/${count})`)
@@ -98,8 +98,7 @@ export async function PATCH(
         current_round: 1,
         movie_ids: movies.map((m) => m.id),
         timer_seconds: settings.timer,
-        difficulty: settings.difficulty,
-        genre: settings.genre,
+        // genre/difficulty : voir game_settings (source de vérité multi-sélection).
         // Référence commune du minuteur (round 1). Tous les clients calculent le
         // temps restant à partir de cet instant → pas de dérive ni de reset au refresh.
         round_started_at: new Date().toISOString(),

@@ -20,17 +20,81 @@ export type GameModeType = (typeof GAME_MODE_KEYS)[number]
 export interface GameSettings {
   rounds: number
   timer: number
-  difficulty: Difficulty
-  genre: Genre
+  // Multi-sélection : soit ['all'], soit un sous-ensemble non vide de clés
+  // spécifiques (jamais 'all' mélangé à des spécifiques — voir collapseMulti).
+  difficulties: Difficulty[]
+  genres: Genre[]
   gameMode: GameModeType
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
   rounds: 5,
   timer: 30,
-  difficulty: 'all',
-  genre: 'all',
+  difficulties: ['popular'], // défaut : Populaires (films au budget plus devinable)
+  genres: ['all'],
   gameMode: 'budget_guess',
+}
+
+const ALL = 'all'
+
+/**
+ * Normalise une sélection multiple selon la règle « Tous » :
+ *  - vide → repli sur `fallback`
+ *  - contient 'all' → uniquement ['all']
+ *  - tous les spécifiques cochés → repli sur ['all']
+ *  - sinon → les spécifiques valides, ordonnés selon `keys`
+ */
+function collapseMulti<T extends string>(
+  values: readonly string[],
+  keys: readonly T[],
+  fallback: readonly T[],
+): T[] {
+  const valid = new Set<string>(keys)
+  const picked = new Set(values.filter((v) => valid.has(v)))
+  if (picked.size === 0) return [...fallback]
+  if (picked.has(ALL)) return [ALL as T]
+  const specifics = keys.filter((k) => k !== ALL)
+  if (specifics.every((s) => picked.has(s))) return [ALL as T]
+  return specifics.filter((s) => picked.has(s))
+}
+
+/**
+ * Bascule une option dans une sélection multiple (clic UI), en appliquant la
+ * règle « Tous ». Partagé par la page Réglages et le lobby pour un comportement
+ * identique :
+ *  - clic sur 'all' → uniquement ['all']
+ *  - 'all' était actif + clic sur un spécifique → uniquement ce spécifique
+ *  - sinon coche/décoche, puis collapseMulti (vide → fallback, complet → ['all'])
+ */
+export function toggleMultiSelect<T extends string>(
+  current: readonly T[],
+  clicked: T,
+  keys: readonly T[],
+  fallback: readonly T[],
+): T[] {
+  if (clicked === (ALL as T)) return [ALL as T]
+  const base = current.includes(ALL as T) ? [] : current.filter((v) => v !== clicked)
+  const next = current.includes(clicked) && !current.includes(ALL as T)
+    ? base // on retire le cliqué
+    : [...base, clicked] // on l'ajoute
+  return collapseMulti(next, keys, fallback)
+}
+
+// Accepte un tableau (nouveau format) OU une chaîne unique (ancien format stocké
+// en base / localStorage) et normalise vers un tableau valide.
+function sanitizeMulti<T extends string>(
+  rawArray: unknown,
+  rawSingle: unknown,
+  keys: readonly T[],
+  fallback: readonly T[],
+): T[] {
+  let values: string[] = []
+  if (Array.isArray(rawArray)) {
+    values = rawArray.filter((v): v is string => typeof v === 'string')
+  } else if (typeof rawSingle === 'string') {
+    values = [rawSingle]
+  }
+  return collapseMulti(values, keys, fallback)
 }
 
 // Replie n'importe quelle entrée (URL, body, JSONB) sur des valeurs sûres.
@@ -38,16 +102,12 @@ export function sanitizeSettings(raw: unknown): GameSettings {
   const r = (raw ?? {}) as Record<string, unknown>
   const rounds = [3, 5, 10].includes(Number(r.rounds)) ? Number(r.rounds) : 5
   const timer = [0, 15, 30, 60].includes(Number(r.timer)) ? Number(r.timer) : 30
-  const difficulty = (DIFFICULTY_KEYS as readonly string[]).includes(r.difficulty as string)
-    ? (r.difficulty as Difficulty)
-    : 'all'
-  const genre = (GENRE_KEYS as readonly string[]).includes(r.genre as string)
-    ? (r.genre as Genre)
-    : 'all'
+  const difficulties = sanitizeMulti(r.difficulties, r.difficulty, DIFFICULTY_KEYS, ['popular'])
+  const genres = sanitizeMulti(r.genres, r.genre, GENRE_KEYS, ['all'])
   const gameMode = (GAME_MODE_KEYS as readonly string[]).includes(r.gameMode as string)
     ? (r.gameMode as GameModeType)
     : 'budget_guess'
-  return { rounds, timer, difficulty, genre, gameMode }
+  return { rounds, timer, difficulties, genres, gameMode }
 }
 
 // Nombre de films à charger : Higher or Lower compare 2 films par round.

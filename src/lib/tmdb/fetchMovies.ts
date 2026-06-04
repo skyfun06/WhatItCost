@@ -3,6 +3,7 @@ import {
   getMovieById,
   getPosterUrl,
   type DiscoverFilters,
+  type DifficultyFilter,
 } from './client'
 
 // Clés de genre (page Paramètres) → IDs de genre TMDB
@@ -18,9 +19,10 @@ const TMDB_GENRE_IDS: Record<string, number> = {
 export type Difficulty = 'all' | 'popular' | 'recent' | 'classics'
 
 export interface MovieFilters {
-  /** Clé de genre ('all' | 'action' | 'drama' | 'comedy' | 'horror' | 'scifi'). */
-  genre?: string
-  difficulty?: Difficulty
+  /** Clés de genre sélectionnées (['all'] ou des clés spécifiques). */
+  genres?: string[]
+  /** Difficultés sélectionnées (['all'] ou des clés spécifiques). */
+  difficulties?: Difficulty[]
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -58,11 +60,14 @@ export async function fetchRandomMoviesWithBudget(
   filters: MovieFilters = {},
   excludeIds: number[] = [],
 ): Promise<MovieWithBudget[]> {
-  const genreId =
-    filters.genre && filters.genre !== 'all' ? TMDB_GENRE_IDS[filters.genre] : undefined
-  const difficulty =
-    filters.difficulty && filters.difficulty !== 'all' ? filters.difficulty : undefined
-  const discoverFilters: DiscoverFilters = { genreId, difficulty }
+  // 'all' = pas de filtre → on ne mappe que les clés spécifiques.
+  const genreIds = (filters.genres ?? [])
+    .filter((g) => g !== 'all')
+    .map((g) => TMDB_GENRE_IDS[g])
+    .filter((id): id is number => typeof id === 'number')
+  const difficulties = (filters.difficulties ?? [])
+    .filter((d): d is DifficultyFilter => d !== 'all')
+  const discoverFilters: DiscoverFilters = { genreIds, difficulties }
 
   // Première page : on l'utilise (résultats réels) ET elle nous donne le nombre de
   // pages réellement disponibles pour ces filtres (un genre/difficulté étroit en a

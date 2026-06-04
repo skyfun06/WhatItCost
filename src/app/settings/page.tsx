@@ -4,6 +4,7 @@ import { Suspense, useState, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import Toggle from '@/components/Toggle'
+import MultiToggle from '@/components/MultiToggle'
 import { useTranslation } from '@/hooks/useTranslation'
 import {
   ROUND_OPTIONS,
@@ -11,6 +12,7 @@ import {
   DIFFICULTY_KEYS,
   GENRE_KEYS,
   GAME_MODE_KEYS,
+  toggleMultiSelect,
   type Difficulty,
   type Genre,
   type GameModeType,
@@ -45,20 +47,22 @@ function SettingsContent() {
 
   const [rounds, setRounds] = useState<number>(5)
   const [timer, setTimer] = useState<number>(30)
-  const [difficulty, setDifficulty] = useState<Difficulty>('all')
-  const [genre, setGenre] = useState<Genre>('all')
+  const [difficulties, setDifficulties] = useState<Difficulty[]>(['popular'])
+  const [genres, setGenres] = useState<Genre[]>(['all'])
   const [gameMode, setGameMode] = useState<GameModeType>('budget_guess')
 
   function start(target: 'solo' | 'multi') {
-    const qs = new URLSearchParams({
+    const params = new URLSearchParams({
       rounds: String(rounds),
       timer: String(timer),
-      difficulty,
-      genre,
       gameMode,
-    }).toString()
+    })
+    // Multi-sélection → un paramètre répété (lu via getAll côté destination).
+    difficulties.forEach((d) => params.append('difficulties', d))
+    genres.forEach((g) => params.append('genres', g))
+    const qs = params.toString()
     try {
-      localStorage.setItem('gameSettings', JSON.stringify({ rounds, timer, difficulty, genre, gameMode }))
+      localStorage.setItem('gameSettings', JSON.stringify({ rounds, timer, difficulties, genres, gameMode }))
     } catch {
       // ignore
     }
@@ -99,17 +103,17 @@ function SettingsContent() {
           </Section>
 
           <Section label={t.settings.difficulty}>
-            <Toggle
-              value={difficulty}
-              onChange={setDifficulty}
+            <MultiToggle
+              values={difficulties}
+              onToggle={(v) => setDifficulties((cur) => toggleMultiSelect(cur, v, DIFFICULTY_KEYS, ['popular']))}
               options={DIFFICULTY_KEYS.map((key) => ({ value: key, label: t.settings.difficulties[key] }))}
             />
           </Section>
 
           <Section label={t.settings.genre}>
-            <Toggle
-              value={genre}
-              onChange={setGenre}
+            <MultiToggle
+              values={genres}
+              onToggle={(v) => setGenres((cur) => toggleMultiSelect(cur, v, GENRE_KEYS, ['all']))}
               wrap
               options={GENRE_KEYS.map((key) => ({ value: key, label: t.settings.genres[key] }))}
             />

@@ -26,7 +26,7 @@ export async function POST(
 
     const oldGameRes = await db
       .from('games')
-      .select('id, mode, timer_seconds, difficulty, genre, game_settings, rematch_game_id')
+      .select('id, mode, timer_seconds, game_settings, rematch_game_id')
       .eq('id', gameId)
       .single() as { data: Partial<GameRow> | null; error: Error | null }
 
@@ -64,10 +64,9 @@ export async function POST(
         movie_ids: [],
         current_round: 1,
         timer_seconds: old.timer_seconds ?? 30,
-        difficulty: old.difficulty ?? 'all',
-        genre: old.genre ?? 'all',
-        // Réglages complets recopiés pour rejouer à l'identique (sinon /start
-        // repartirait sur les valeurs par défaut, ex : Higher or Lower → budget_guess).
+        // Réglages complets recopiés pour rejouer à l'identique (genres/difficultés
+        // multi-sélection, mode…) : c'est game_settings que /start relit (sinon il
+        // repartirait sur les défauts, ex : Higher or Lower → budget_guess).
         game_settings: old.game_settings ?? {},
         locale: 'fr',
       })

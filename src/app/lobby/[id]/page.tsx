@@ -7,6 +7,7 @@ import { useTranslation } from '@/hooks/useTranslation'
 import { getWatchedMovieIds } from '@/lib/watchedMovies'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import Toggle from '@/components/Toggle'
+import MultiToggle from '@/components/MultiToggle'
 import {
   ROUND_OPTIONS,
   TIMER_OPTIONS,
@@ -15,6 +16,7 @@ import {
   GAME_MODE_KEYS,
   DEFAULT_SETTINGS,
   sanitizeSettings,
+  toggleMultiSelect,
   type GameSettings,
 } from '@/lib/gameSettings'
 
@@ -241,11 +243,13 @@ export default function LobbyRoomPage() {
                 options={GAME_MODE_KEYS.map((k) => ({ value: k, label: t.settings.gameModes[k] }))} />
             </Field>
             <Field label={t.settings.difficulty}>
-              <Toggle value={settings.difficulty} disabled={!isHost} onChange={(v) => changeSetting('difficulty', v)}
+              <MultiToggle values={settings.difficulties} disabled={!isHost}
+                onToggle={(v) => changeSetting('difficulties', toggleMultiSelect(settings.difficulties, v, DIFFICULTY_KEYS, ['popular']))}
                 options={DIFFICULTY_KEYS.map((k) => ({ value: k, label: t.settings.difficulties[k] }))} />
             </Field>
             <Field label={t.settings.genre}>
-              <Toggle value={settings.genre} disabled={!isHost} wrap onChange={(v) => changeSetting('genre', v)}
+              <MultiToggle values={settings.genres} disabled={!isHost} wrap
+                onToggle={(v) => changeSetting('genres', toggleMultiSelect(settings.genres, v, GENRE_KEYS, ['all']))}
                 options={GENRE_KEYS.map((k) => ({ value: k, label: t.settings.genres[k] }))} />
             </Field>
           </div>

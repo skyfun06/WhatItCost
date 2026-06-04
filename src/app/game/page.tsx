@@ -15,11 +15,13 @@ export default function SoloGamePage() {
       try {
         // Paramètres choisis sur la page Réglages, transmis via l'URL.
         const sp = new URLSearchParams(window.location.search)
+        const difficulties = sp.getAll('difficulties')
+        const genres = sp.getAll('genres')
         const settings = {
           rounds: Number(sp.get('rounds')) || undefined,
           timer: sp.get('timer') !== null ? Number(sp.get('timer')) : undefined,
-          difficulty: sp.get('difficulty') ?? undefined,
-          genre: sp.get('genre') ?? undefined,
+          difficulties: difficulties.length ? difficulties : undefined,
+          genres: genres.length ? genres : undefined,
           gameMode: sp.get('gameMode') ?? undefined,
         }
 

@@ -22,11 +22,13 @@ export default function LobbyCreatePage() {
       // suivre pour pré-remplir le lobby. Absents (flux accueil → /lobby/create
       // direct) → le serveur applique les valeurs par défaut.
       const sp = new URLSearchParams(window.location.search)
+      const difficulties = sp.getAll('difficulties')
+      const genres = sp.getAll('genres')
       const settings = {
         rounds: sp.get('rounds') !== null ? Number(sp.get('rounds')) : undefined,
         timer: sp.get('timer') !== null ? Number(sp.get('timer')) : undefined,
-        difficulty: sp.get('difficulty') ?? undefined,
-        genre: sp.get('genre') ?? undefined,
+        difficulties: difficulties.length ? difficulties : undefined,
+        genres: genres.length ? genres : undefined,
         gameMode: sp.get('gameMode') ?? undefined,
       }
 

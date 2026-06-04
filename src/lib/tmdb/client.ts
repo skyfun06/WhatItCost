@@ -42,12 +42,14 @@ export async function getMovieById(id: number, language = 'fr-FR'): Promise<TMDB
   })
 }
 
+export type DifficultyFilter = 'popular' | 'recent' | 'classics'
+
 /** Filtres optionnels de découverte (dérivés des paramètres de partie). */
 export interface DiscoverFilters {
-  /** ID de genre TMDB (ex: 28 = Action). Absent = tous genres. */
-  genreId?: number
-  /** Difficulté → traduit en filtres TMDB (votes / dates de sortie). */
-  difficulty?: 'popular' | 'recent' | 'classics'
+  /** IDs de genre TMDB (ex: [28] = Action). Plusieurs = OU. Vide = tous genres. */
+  genreIds?: number[]
+  /** Difficultés → traduites en filtres TMDB (votes / dates de sortie). Cumulées (ET). */
+  difficulties?: DifficultyFilter[]
 }
 
 /**
@@ -56,11 +58,14 @@ export interface DiscoverFilters {
  * Note : TMDB ne permet pas de filtrer nativement sur budget > 0,
  * le filtrage se fait côté app après récupération.
  *
- * Les filtres affinent la requête /discover :
- *  - genreId   → with_genres
+ * Les filtres affinent la requête /discover (multi-sélection) :
+ *  - genreIds  → with_genres en OU (a|b) : films d'au moins un des genres
  *  - popular   → seuil de votes relevé (films très connus)
  *  - recent    → sortis à partir de 2018
  *  - classics  → sortis avant 2001
+ *  Les difficultés se cumulent (ET). Cas contradictoire recent + classics
+ *  (sorti après 2018 ET avant 2000) : on ignore la contrainte de date pour
+ *  ne pas renvoyer 0 résultat.
  */
 export async function discoverMoviesWithBudget(
   page = 1,
@@ -74,19 +79,22 @@ export async function discoverMoviesWithBudget(
     language,
   }
 
-  if (filters.genreId) params.with_genres = String(filters.genreId)
-
-  switch (filters.difficulty) {
-    case 'popular':
-      params['vote_count.gte'] = '3000'
-      break
-    case 'recent':
-      params['primary_release_date.gte'] = '2018-01-01'
-      break
-    case 'classics':
-      params['release_date.lte'] = '2000-12-31'
-      break
+  if (filters.genreIds?.length) {
+    // OU : un film correspond s'il a AU MOINS un des genres choisis.
+    params.with_genres = filters.genreIds.join('|')
   }
+
+  const difficulties = new Set(filters.difficulties ?? [])
+  if (difficulties.has('popular')) params['vote_count.gte'] = '3000'
+
+  const recent = difficulties.has('recent')
+  const classics = difficulties.has('classics')
+  if (recent && !classics) {
+    params['primary_release_date.gte'] = '2018-01-01'
+  } else if (classics && !recent) {
+    params['release_date.lte'] = '2000-12-31'
+  }
+  // recent && classics → contradictoire → aucune contrainte de date.
 
   return tmdbFetch<TMDBDiscoverResponse>('/discover/movie', params)
 }

@@ -39,8 +39,8 @@ export async function POST(request: Request) {
           movie_ids: [],
           current_round: 1,
           timer_seconds: settings.timer,
-          difficulty: settings.difficulty,
-          genre: settings.genre,
+          // genre/difficulty (colonnes texte legacy) : la source de vérité est
+          // game_settings (JSONB, multi-sélection). On laisse leur défaut 'all'.
           // Réglages reçus (sanitizés) : si l'hôte a déjà configuré sur /settings,
           // le lobby les pré-affiche au lieu de repartir sur les valeurs par défaut.
           // Body sans réglages → sanitizeSettings renvoie les défauts (flux accueil).
@@ -77,8 +77,8 @@ export async function POST(request: Request) {
     // ── Solo : réglages choisis sur /settings → on récupère les films tout de suite ──
     const count = moviesNeeded(settings)
     const movies = await fetchRandomMoviesWithBudget(count, {
-      genre: settings.genre,
-      difficulty: settings.difficulty,
+      genres: settings.genres,
+      difficulties: settings.difficulties,
     }, excludeIds)
     if (movies.length < count) {
       return NextResponse.json(
@@ -108,8 +108,8 @@ export async function POST(request: Request) {
         movie_ids: movies.map((m) => m.id),
         current_round: 1,
         timer_seconds: settings.timer,
-        difficulty: settings.difficulty,
-        genre: settings.genre,
+        // Source de vérité = game_settings (JSONB). Colonnes genre/difficulty
+        // legacy laissées à leur défaut 'all'.
         game_settings: settings,
         locale: 'fr',
       })
