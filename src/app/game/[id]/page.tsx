@@ -9,6 +9,7 @@ import AnimatedBackground from '@/components/AnimatedBackground'
 import HigherLowerChain from '@/components/HigherLowerChain'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
+import { captureCard, shareImage, downloadBlob, tweetIntentUrl, copyText, shareUrl, SITE_URL } from '@/lib/share'
 import { type Translations } from '@/i18n'
 
 interface GameMovie {
@@ -677,66 +678,41 @@ export default function GamePage() {
     }
   }, [gameId, goToRematch])
 
-  // Capture la carte-score (visible dans le modal) en blob PNG via html2canvas.
-  const captureScoreCard = useCallback(async (): Promise<Blob | null> => {
-    const node = scoreCardRef.current
-    if (!node) return null
-    const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(node, {
-      backgroundColor: '#111111',
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    })
-    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'))
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2600)
   }, [])
 
-  // Téléchargement direct du PNG
-  const handleDownload = useCallback(async () => {
-    try {
-      const blob = await captureScoreCard()
-      if (!blob) { console.error('download: capture nulle'); return }
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'mon-score-whatitcost.png'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      setToast(t.game.imageDownloaded)
-      setTimeout(() => setToast(null), 2500)
-    } catch (e) {
-      console.error('download: échec', e)
-    }
-  }, [captureScoreCard, t])
+  // Texte + lien de partage (Budget Guess) — lien porteur du score pour l'embed OG.
+  const budgetShareText = t.game.shareText.replace('{score}', formatScore(totalScore))
+  const budgetLink = shareUrl({ mode: 'budget', score: totalScore })
 
-  // Copie l'image dans le presse-papier (ClipboardItem), repli sur téléchargement.
-  const handleCopyImage = useCallback(async () => {
-    try {
-      const blob = await captureScoreCard()
-      if (!blob) { console.error('copy: capture nulle'); return }
-      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        setToast(t.game.imageCopied)
-        setTimeout(() => setToast(null), 2500)
-      } else {
-        // Presse-papier image non supporté → on télécharge à la place
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'mon-score-whatitcost.png'
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        URL.revokeObjectURL(url)
-        setToast(t.game.imageDownloaded)
-        setTimeout(() => setToast(null), 2500)
-      }
-    } catch (e) {
-      console.error('copy: échec', e)
+  // a) Partage natif (Web Share niveau fichier) → menu OS ; repli téléchargement.
+  const doShareNative = useCallback(async () => {
+    const node = scoreCardRef.current
+    if (!node) return
+    const blob = await captureCard(node)
+    if (!blob) return
+    const res = await shareImage(blob, { text: `${budgetShareText} ${SITE_URL}`, fileName: 'mon-score-whatitcost.png' })
+    if (res === 'downloaded') showToast(t.game.imageDownloaded)
+  }, [budgetShareText, showToast, t])
+
+  // b) Twitter/X : télécharge l'image (l'intent ne la porte pas) + ouvre l'intent.
+  const doTwitter = useCallback(async () => {
+    const node = scoreCardRef.current
+    if (node) {
+      const blob = await captureCard(node)
+      if (blob) downloadBlob(blob, 'mon-score-whatitcost.png')
     }
-  }, [captureScoreCard, t])
+    window.open(tweetIntentUrl(budgetShareText, budgetLink), '_blank', 'noopener,noreferrer')
+    showToast(t.game.shareTweetHint)
+  }, [budgetShareText, budgetLink, showToast, t])
+
+  // c) Copier le lien (porteur du score → embed Discord/Twitter personnalisé).
+  const doCopyLink = useCallback(async () => {
+    const ok = await copyText(budgetLink)
+    if (ok) showToast(t.game.linkCopied)
+  }, [budgetLink, showToast, t])
 
   // Soumission auto au timeout (Budget Guess)
   const autoSubmit = useCallback(() => {
@@ -1097,21 +1073,28 @@ export default function GamePage() {
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Actions de partage (Web Share natif / X / copier le lien) */}
               <div className="flex flex-wrap justify-center gap-3 w-full">
                 <button
-                  onClick={handleDownload}
+                  onClick={doShareNative}
                   className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
                   style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
                 >
-                  {t.game.download}
+                  {t.game.shareNative}
                 </button>
                 <button
-                  onClick={handleCopyImage}
+                  onClick={doTwitter}
                   className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
                   style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
                 >
-                  {t.game.copyImage}
+                  {t.game.shareTwitter}
+                </button>
+                <button
+                  onClick={doCopyLink}
+                  className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
+                  style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
+                >
+                  {t.game.shareCopyLink}
                 </button>
                 <button
                   onClick={() => setShareModalOpen(false)}

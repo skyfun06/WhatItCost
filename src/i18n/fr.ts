@@ -138,6 +138,14 @@ export const fr = {
     holVictory: 'Tu as fini la chaîne ! 🏆',
     holYouPlaying: 'en cours…',
     holYouDone: 'terminé',
+    // ─── Partage ───
+    shareNative: 'Partager',
+    shareTwitter: 'Partager sur X',
+    shareCopyLink: 'Copier le lien',
+    shareTweetHint: 'Image téléchargée, ajoute-la à ton tweet !',
+    holShareText: 'J\'ai fait une chaîne de {n} films sur WhatItCost 🎬 Tu fais mieux ?',
+    holCardChain: 'Chaîne de',
+    holCardFilms: 'films',
   },
   lobby: {
     title: 'Multijoueur',

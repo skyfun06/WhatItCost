@@ -50,12 +50,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // lang défini ici ; le hook useTranslation le met à jour dynamiquement via <html lang>
     <html lang="fr" className={spaceGrotesk.variable}>
-      <head>
-        {/* og:image explicite (en plus des métadonnées Next) pour les scrapers stricts */}
-        <meta property="og:image" content="https://whatitcost.fr/api/og" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-      </head>
+      {/* L'og:image est émis par Next depuis `metadata.openGraph.images` (défaut ci-dessus,
+          ou personnalisé par le generateMetadata de la home pour un lien porteur de score). */}
       <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden">
         {/*
           LocaleProvider est un Client Component qui wrap toute l'app.

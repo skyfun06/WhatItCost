@@ -138,6 +138,14 @@ export const en = {
     holVictory: 'You finished the chain! 🏆',
     holYouPlaying: 'playing…',
     holYouDone: 'done',
+    // ─── Share ───
+    shareNative: 'Share',
+    shareTwitter: 'Share on X',
+    shareCopyLink: 'Copy link',
+    shareTweetHint: 'Image downloaded — add it to your tweet!',
+    holShareText: 'I chained {n} movies on WhatItCost 🎬 Can you beat it?',
+    holCardChain: 'Chain of',
+    holCardFilms: 'movies',
   },
   lobby: {
     title: 'Multiplayer',

@@ -3,11 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { Syne } from 'next/font/google'
 import { formatBudget } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { HOL_LOOKAHEAD } from '@/lib/gameSettings'
+import { captureCard, shareImage, downloadBlob, tweetIntentUrl, copyText, shareUrl, SITE_URL } from '@/lib/share'
+
+// Police Syne (identité visuelle) pour la scorecard partageable.
+const syne = Syne({ subsets: ['latin'], weight: ['700', '800'], display: 'swap' })
 
 // Film de la chaîne, SANS budget (les budgets restent serveur, révélés par /guess).
 interface ChainMovie {
@@ -74,6 +79,12 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
   const [newRecord, setNewRecord] = useState(false)
   const [players, setPlayers] = useState<PlayerScore[]>([])
   const [loadError, setLoadError] = useState(false)
+
+  // Partage : modal d'aperçu de la scorecard + toast éphémère
+  const [shareOpen, setShareOpen] = useState(false)
+  const [previewScale, setPreviewScale] = useState(1)
+  const [toast, setToast] = useState<string | null>(null)
+  const scoreCardRef = useRef<HTMLDivElement>(null)
 
   // Résultat du maillon en cours de révélation (compteur animé + game over).
   const [reveal, setReveal] = useState<{ correct: boolean; revealedBudget: number; leftBudget: number; choice: Guess } | null>(null)
@@ -306,6 +317,149 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
     router.push(`/game?${params.toString()}`)
   }, [router])
 
+  // ─── Partage ──────────────────────────────────────────────────────────────────
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2600)
+  }, [])
+
+  // Adapte la scorecard 1200×630 à la largeur de l'écran/modal.
+  useEffect(() => {
+    if (!shareOpen) return
+    const maxW = Math.min((typeof window !== 'undefined' ? window.innerWidth : 1200) - 48, 560)
+    setPreviewScale(Math.min(1, maxW / 1200))
+  }, [shareOpen])
+
+  const shareText = t.game.holShareText.replace('{n}', String(position))
+  const link = shareUrl({ mode: 'chain', score: position })
+
+  const doShareNative = useCallback(async () => {
+    const node = scoreCardRef.current
+    if (!node) return
+    const blob = await captureCard(node)
+    if (!blob) return
+    const res = await shareImage(blob, { text: `${shareText} ${SITE_URL}`, fileName: 'whatitcost-chaine.png' })
+    if (res === 'downloaded') showToast(t.game.imageDownloaded)
+  }, [shareText, showToast, t])
+
+  const doTwitter = useCallback(async () => {
+    const node = scoreCardRef.current
+    if (node) {
+      const blob = await captureCard(node)
+      if (blob) downloadBlob(blob, 'whatitcost-chaine.png')
+    }
+    window.open(tweetIntentUrl(shareText, link), '_blank', 'noopener,noreferrer')
+    showToast(t.game.shareTweetHint)
+  }, [shareText, link, showToast, t])
+
+  const doCopyLink = useCallback(async () => {
+    const ok = await copyText(link)
+    if (ok) showToast(t.game.linkCopied)
+  }, [link, showToast, t])
+
+  // Les 2–3 derniers films de la chaîne (affiches sur la scorecard, via proxy).
+  const lastPosters = movies
+    .slice(Math.max(0, position - 2), position + 1)
+    .filter((m) => m.poster_path)
+    .slice(-3)
+
+  // Modal d'aperçu + partage de la scorecard (1200×630, ratio Open Graph).
+  const renderShareModal = () => (
+    <div
+      className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.85)', animation: 'wicFadeIn 0.2s ease-out' }}
+      onClick={() => setShareOpen(false)}
+    >
+      <style>{`@keyframes wicFadeIn { from { opacity: 0; } to { opacity: 1; } }`}</style>
+      <div
+        className="w-full flex flex-col items-center gap-4"
+        style={{ maxWidth: '600px', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '16px', padding: '20px' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Aperçu : carte 1200×630 mise à l'échelle ; html2canvas la capture en natif. */}
+        <div style={{ width: 1200 * previewScale, height: 630 * previewScale, overflow: 'hidden' }}>
+          <div
+            ref={scoreCardRef}
+            className={syne.className}
+            style={{
+              width: '1200px', height: '630px',
+              transform: `scale(${previewScale})`, transformOrigin: 'top left',
+              backgroundColor: '#111111', color: '#ffffff', overflow: 'hidden', position: 'relative',
+            }}
+          >
+            {/* Motif $ ? en diagonale */}
+            <div style={{ position: 'absolute', inset: '-20%', transform: 'rotate(-20deg)', display: 'flex', flexDirection: 'column', gap: '54px', pointerEvents: 'none' }}>
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} style={{ whiteSpace: 'nowrap', fontSize: '64px', fontWeight: 700, letterSpacing: '64px', color: '#ffffff', opacity: 0.05, lineHeight: 1 }}>
+                  {i % 2 === 0 ? '$ ? $ ? $ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ? $ ? $ ?'}
+                </div>
+              ))}
+            </div>
+
+            {/* Contenu */}
+            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 56px' }}>
+              <p style={{ color: '#FF4D2E', fontSize: '26px', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase' }}>
+                WHATITCOST.FR
+              </p>
+
+              {/* Affiches des derniers films de la chaîne */}
+              {lastPosters.length > 0 && (
+                <div style={{ display: 'flex', gap: '18px', marginTop: '26px' }}>
+                  {lastPosters.map((m) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={m.id}
+                      src={`/api/poster?path=${encodeURIComponent(m.poster_path as string)}&size=w342`}
+                      alt={m.title}
+                      crossOrigin="anonymous"
+                      width={132}
+                      height={198}
+                      style={{ width: '132px', height: '198px', objectFit: 'cover', borderRadius: '12px', border: '2px solid rgba(255,255,255,0.12)' }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <p style={{ color: '#FF4D2E', fontSize: '34px', fontWeight: 700, letterSpacing: '6px', textTransform: 'uppercase', marginTop: '30px' }}>
+                {t.game.holCardChain}
+              </p>
+              <p style={{ fontSize: '170px', fontWeight: 800, lineHeight: 1, color: '#ffffff' }}>{position}</p>
+              <p style={{ fontSize: '52px', fontWeight: 800, letterSpacing: '10px', textTransform: 'uppercase', color: '#ffffff' }}>
+                {t.game.holCardFilms}
+              </p>
+
+              {newRecord && (
+                <p style={{ marginTop: '18px', color: '#FF4D2E', fontSize: '30px', fontWeight: 700 }}>🏆 {t.game.holNewRecord}</p>
+              )}
+            </div>
+
+            {/* Bas : domaine + barre corail */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
+              <p style={{ textAlign: 'center', fontSize: '22px', color: '#ffffff', marginBottom: '16px' }}>whatitcost.fr</p>
+              <div style={{ height: '10px', backgroundColor: '#FF4D2E' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Boutons de partage */}
+        <div className="flex flex-wrap justify-center gap-3 w-full">
+          <button onClick={doShareNative} className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
+            {t.game.shareNative}
+          </button>
+          <button onClick={doTwitter} className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
+            {t.game.shareTwitter}
+          </button>
+          <button onClick={doCopyLink} className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
+            {t.game.shareCopyLink}
+          </button>
+          <button onClick={() => setShareOpen(false)} className="flex-1 min-w-[120px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
+            {t.game.close}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   // ─── Rendu ────────────────────────────────────────────────────────────────────
 
   if (phase === 'loading') {
@@ -382,13 +536,22 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
             </div>
           )}
 
-          <div className="flex flex-wrap justify-center gap-3 mt-2 w-full">
+          {/* Partage — levier de viralité, mis en avant */}
+          <button
+            onClick={() => setShareOpen(true)}
+            className="w-full min-h-[48px] px-8 py-3 font-bold text-white uppercase tracking-wider mt-1"
+            style={{ backgroundColor: '#FF4D2E', borderRadius: '8px' }}
+          >
+            {t.game.share}
+          </button>
+
+          <div className="flex flex-wrap justify-center gap-3 w-full">
             {gameMode === 'solo' ? (
-              <button onClick={replaySolo} className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
+              <button onClick={replaySolo} className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
                 {t.game.playAgain}
               </button>
             ) : (
-              <button onClick={() => router.push('/lobby')} className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider" style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}>
+              <button onClick={() => router.push('/lobby')} className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
                 {t.game.playAgain}
               </button>
             )}
@@ -397,6 +560,13 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
             </button>
           </div>
         </div>
+
+        {shareOpen && renderShareModal()}
+        {toast && (
+          <div className="fixed left-1/2 -translate-x-1/2 z-[120] text-sm font-semibold" style={{ bottom: '88px', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', padding: '10px 18px' }}>
+            {toast}
+          </div>
+        )}
       </AnimatedBackground>
     )
   }
