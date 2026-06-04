@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { formatBudget, formatScore } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import HigherLowerChain from '@/components/HigherLowerChain'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { type Translations } from '@/i18n'
@@ -189,14 +190,8 @@ export default function GamePage() {
   // Mode de jeu : 'budget_guess' (slider) ou 'higher_or_lower' (comparaison)
   const [gameModeType, setGameModeType] = useState<'budget_guess' | 'higher_or_lower'>('budget_guess')
   const gameModeTypeRef = useRef<'budget_guess' | 'higher_or_lower'>('budget_guess')
-  // Higher or Lower : résultat révélé du round + bouton choisi
-  const [holResult, setHolResult] = useState<{
-    correct: boolean
-    points: number
-    revealed_budget: number
-    left_budget: number
-  } | null>(null)
-  const [holChoice, setHolChoice] = useState<'higher' | 'lower' | null>(null)
+  // Note : le mode Higher or Lower (chaîne) est entièrement géré par le composant
+  // <HigherLowerChain> ; ce qui suit ne concerne plus que Budget Guess.
 
   // Refs to avoid stale closures in Realtime callbacks
   const currentRoundRef = useRef(1)
@@ -432,7 +427,7 @@ export default function GamePage() {
     roundCountRef.current = roundsFromMovies(parsedMovies.length, storedModeType)
 
     if (storedMode === 'multiplayer') {
-      console.log('[WIC] game mount: multijoueur → reconcile + Realtime + polling')
+      console.log('[WIC] game mount: multijoueur → détection du mode')
       // Filet anti-blocage : si toujours en "loading" après 8s, écran d'erreur.
       const loadTimer = setTimeout(() => {
         if (phaseRef.current === 'loading') {
@@ -441,42 +436,61 @@ export default function GamePage() {
         }
       }, 8000)
 
-      // Synchro initiale (gère aussi la reprise après refresh : reconcile lit
-      // l'état serveur et place la bonne phase, y compris round déjà avancé).
-      reconcile()
+      let cancelled = false
+      let teardown: (() => void) | null = null
 
-      // Realtime = chemin rapide. games UPDATE (hôte a avancé / partie finie)
-      // et rounds INSERT (quelqu'un a répondu) déclenchent une réconciliation.
-      const supabase = createClient()
-      const channel = supabase
-        .channel(`game-${gameId}`)
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-          () => { reconcile() },
-        )
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'rounds', filter: `game_id=eq.${gameId}` },
-          () => { reconcile() },
-        )
-        .subscribe((status) => {
-          // CLOSED est l'état terminal NORMAL au démontage (navigation, double-mount
-          // StrictMode en dev) — pas une panne. On ne logue que les vraies erreurs.
-          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.error(`Realtime: canal game-${gameId} → ${status}`)
+      // On détecte d'abord le mode (game_settings). Higher or Lower → composant
+      // chaîne autonome, AUCUNE machinerie round-based (reconcile/Realtime/poll).
+      // Budget Guess → on installe la synchro round-based habituelle.
+      fetch(`/api/games/${gameId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data) return
+          const gm: 'budget_guess' | 'higher_or_lower' =
+            (data.game?.game_settings as { gameMode?: string } | null)?.gameMode === 'higher_or_lower'
+              ? 'higher_or_lower'
+              : 'budget_guess'
+          setGameModeType(gm)
+          gameModeTypeRef.current = gm
+
+          if (gm === 'higher_or_lower') {
+            // Phase non-"loading" → le rendu bascule sur <HigherLowerChain>.
+            setPhase('guessing')
+            return
+          }
+
+          // ── Budget Guess : reconcile + Realtime + polling ──
+          reconcile()
+          const supabase = createClient()
+          const channel = supabase
+            .channel(`game-${gameId}`)
+            .on(
+              'postgres_changes',
+              { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
+              () => { reconcile() },
+            )
+            .on(
+              'postgres_changes',
+              { event: 'INSERT', schema: 'public', table: 'rounds', filter: `game_id=eq.${gameId}` },
+              () => { reconcile() },
+            )
+            .subscribe((status) => {
+              if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                console.error(`Realtime: canal game-${gameId} → ${status}`)
+              }
+            })
+          const poll = setInterval(reconcile, 3000)
+          teardown = () => {
+            clearInterval(poll)
+            supabase.removeChannel(channel)
           }
         })
-
-      // Filet de sécurité : si un événement Realtime est perdu (free tier, réseau,
-      // onglet en arrière-plan…), le polling rattrape la progression. C'est ce qui
-      // empêche de rester bloqué sur "En attente" alors que tous ont répondu.
-      const poll = setInterval(reconcile, 3000)
+        .catch((e) => console.error('[WIC] game mount: détection mode', e))
 
       return () => {
+        cancelled = true
         clearTimeout(loadTimer)
-        clearInterval(poll)
-        supabase.removeChannel(channel)
+        teardown?.()
       }
     } else {
       // Solo : le minuteur est stocké en localStorage à la création de la partie.
@@ -494,8 +508,6 @@ export default function GamePage() {
       setSliderPos(DEFAULT_POS)
       setGuessMillions((posToDollars(DEFAULT_POS) / 1_000_000).toString())
       setAlreadyAnswered(false)
-      setHolResult(null)
-      setHolChoice(null)
       setRoundScores([]) // évite un flash des scores du round précédent
     }
   }, [phase, currentRound])
@@ -596,49 +608,6 @@ export default function GamePage() {
       setSubmitting(false)
     }
   }, [playerId, guessMillions, alreadyAnswered, gameId, currentRound, gameMode, reconcile])
-
-  // Higher or Lower : le joueur compare le budget caché (droite) au budget révélé (gauche)
-  const handleHolGuess = useCallback(async (guess: 'higher' | 'lower') => {
-    if (submittingRef.current || alreadyAnswered) return
-    if (!playerId) return
-    const submittedRound = currentRound
-    submittingRef.current = true
-    setSubmitting(true)
-    setHolChoice(guess)
-    setError(null)
-    try {
-      const res = await fetch(`/api/games/${gameId}/higher-or-lower-guess`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ player_id: playerId, round_number: currentRound, guess }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Erreur serveur')
-      setHolResult({
-        correct: data.correct,
-        points: data.points,
-        revealed_budget: data.revealed_budget,
-        left_budget: data.left_budget,
-      })
-      setScores((prev) => [...prev, data.points])
-      if (gameMode === 'multiplayer') {
-        setPhase('waiting_others')
-        reconcile()
-      } else {
-        setPhase('revealing')
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur serveur'
-      if (msg === 'Round already answered') {
-        if (currentRoundRef.current === submittedRound) setAlreadyAnswered(true)
-      } else {
-        setError(msg)
-      }
-    } finally {
-      submittingRef.current = false
-      setSubmitting(false)
-    }
-  }, [playerId, alreadyAnswered, gameId, currentRound, gameMode, reconcile])
 
   // Slider interaction → keep guessMillions (consumed by handleSubmit) in sync
   const handleSliderChange = (pos: number) => {
@@ -769,11 +738,10 @@ export default function GamePage() {
     }
   }, [captureScoreCard, t])
 
-  // Soumission auto au timeout, selon le mode de jeu
+  // Soumission auto au timeout (Budget Guess)
   const autoSubmit = useCallback(() => {
-    if (gameModeTypeRef.current === 'higher_or_lower') handleHolGuess('higher')
-    else handleSubmit()
-  }, [handleHolGuess, handleSubmit])
+    handleSubmit()
+  }, [handleSubmit])
 
   // Always call the latest autoSubmit from the timer without re-arming it
   const handleSubmitRef = useRef(autoSubmit)
@@ -863,6 +831,14 @@ export default function GamePage() {
         {t.common.loading}
       </div>
     )
+  }
+
+  // ─── HIGHER OR LOWER (chaîne infinie) ───────────────────────────────────────
+  // Composant autonome : sa propre machine à états (chaîne, révélation, game over)
+  // et sa propre synchro multi (classement live). Court-circuite toute la logique
+  // round-based ci-dessous, qui reste réservée au mode Budget Guess.
+  if (gameModeType === 'higher_or_lower' && playerId) {
+    return <HigherLowerChain gameId={gameId} playerId={playerId} gameMode={gameMode} />
   }
 
   // ─── Finished ─────────────────────────────────────────────────────────────
@@ -1182,38 +1158,24 @@ export default function GamePage() {
           animation: 'wicPopIn 0.25s ease-out',
         }}
       >
-        {/* Résultat personnel du round */}
-        {gameModeType === 'higher_or_lower'
-          ? holResult && (
-              <>
-                <p className="font-bold" style={{ fontSize: '1.2rem', color: holResult.correct ? '#48D982' : '#FF5C5C' }}>
-                  {holResult.correct ? `${t.game.correct} ✓` : `${t.game.wrong} ✗`}
-                </p>
-                <p className="font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(2.2rem, 11vw, 3rem)', lineHeight: 1.1 }}>
-                  +{formatScore(holResult.points)} {t.game.points}
-                </p>
-                <p className="mt-2 font-semibold" style={{ color: '#FF4D2E' }}>
-                  {t.game.actualBudget} : {formatBudget(holResult.revealed_budget)}
-                </p>
-              </>
-            )
-          : roundResult && (
-              <>
-                <p className="font-bold text-white" style={{ fontSize: '1.2rem' }}>{scoreLabel(roundResult.score, t.game)}</p>
-                <p className="font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(2.2rem, 11vw, 3rem)', lineHeight: 1.1 }}>
-                  +{formatScore(roundResult.score)} {t.game.points}
-                </p>
-                <p className="text-white mt-4">
-                  {t.game.yourGuess} : <span className="font-semibold">{formatBudget(roundResult.guess)}</span>
-                </p>
-                <p className="mt-1 font-semibold" style={{ color: '#FF4D2E' }}>
-                  {t.game.actualBudget} : {formatBudget(roundResult.actual_budget)}
-                </p>
-                <p className="text-muted mt-1">
-                  {t.game.gap} : <span>{gapPercent(roundResult)}%</span>
-                </p>
-              </>
-            )}
+        {/* Résultat personnel du round (Budget Guess) */}
+        {roundResult && (
+          <>
+            <p className="font-bold text-white" style={{ fontSize: '1.2rem' }}>{scoreLabel(roundResult.score, t.game)}</p>
+            <p className="font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(2.2rem, 11vw, 3rem)', lineHeight: 1.1 }}>
+              +{formatScore(roundResult.score)} {t.game.points}
+            </p>
+            <p className="text-white mt-4">
+              {t.game.yourGuess} : <span className="font-semibold">{formatBudget(roundResult.guess)}</span>
+            </p>
+            <p className="mt-1 font-semibold" style={{ color: '#FF4D2E' }}>
+              {t.game.actualBudget} : {formatBudget(roundResult.actual_budget)}
+            </p>
+            <p className="text-muted mt-1">
+              {t.game.gap} : <span>{gapPercent(roundResult)}%</span>
+            </p>
+          </>
+        )}
 
         {/* Multi : score de chaque joueur pour ce round (comparaison) */}
         {gameMode === 'multiplayer' && roundScores.length > 0 && (
@@ -1276,213 +1238,6 @@ export default function GamePage() {
       </div>
     </div>
   )
-
-  // ─── HIGHER OR LOWER ────────────────────────────────────────────────────────
-  if (gameModeType === 'higher_or_lower') {
-    const left = movies[(currentRound - 1) * 2]
-    const right = movies[(currentRound - 1) * 2 + 1]
-    if (!left || !right) {
-      return (
-        <div className="min-h-screen flex items-center justify-center text-muted text-sm" style={{ backgroundColor: '#111111' }}>
-          {t.common.loading}
-        </div>
-      )
-    }
-    const canAnswer = phase === 'guessing' && !submitting && !alreadyAnswered
-
-    const card = (movie: GameMovie, isRight: boolean) => {
-      // Synopsis dans la langue active (repli sur l'autre langue si vide)
-      const cardOverview =
-        locale === 'fr'
-          ? movie.overview_fr || movie.overview
-          : movie.overview || movie.overview_fr
-      return (
-        <div
-          className="flex-1 min-w-0 flex flex-col items-center gap-2 p-4"
-          style={{ backgroundColor: 'rgba(15,15,15,0.85)', border: '1px solid #222', borderRadius: '16px' }}
-        >
-          {movie.poster_path && (
-            <Image
-              src={movie.poster_url}
-              alt={movie.title}
-              width={300}
-              height={450}
-              unoptimized
-              className="object-cover w-auto rounded-xl"
-              style={{ maxHeight: '24vh' }}
-            />
-          )}
-          <h2 className="font-bold text-white text-center leading-tight" style={{ fontSize: 'clamp(1rem, 3.5vw, 1.4rem)' }}>
-            {movie.title}
-          </h2>
-          <div className="flex flex-wrap gap-1.5 justify-center">
-            {[String(movie.year), ...movie.genres.slice(0, 2)].map((tag, i) => (
-              <span key={i} className="text-xs px-2.5 py-0.5 text-white" style={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '100px' }}>
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Réalisateur */}
-          {movie.director && (
-            <p className="text-xs text-center leading-tight">
-              <span style={{ color: '#666' }}>{t.game.director} </span>
-              <span className="text-white font-semibold">{movie.director}</span>
-            </p>
-          )}
-
-          {/* Casting (photos réelles TMDB, repli initiales) */}
-          {movie.cast_list.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2.5 max-w-full">
-              {movie.cast_list.slice(0, 4).map((name, i) => {
-                const profile = actorPhotos[name]
-                return (
-                  <div key={i} className="flex flex-col items-center gap-1 shrink-0" style={{ width: '48px' }}>
-                    {profile ? (
-                      <Image
-                        src={`https://image.tmdb.org/t/p/w185${profile}`}
-                        alt={name}
-                        width={40}
-                        height={40}
-                        unoptimized
-                        style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <div
-                        className="flex items-center justify-center text-[0.6rem] font-bold text-white/70"
-                        style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#2a2a2a' }}
-                      >
-                        {initials(name)}
-                      </div>
-                    )}
-                    <span className="text-center text-white/60 leading-tight" style={{ fontSize: '0.6rem' }} title={name}>
-                      {shortName(name)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* Synopsis (tronqué) */}
-          {cardOverview && (
-            <p
-              className="text-xs leading-relaxed text-center"
-              style={{
-                color: '#888',
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {cardOverview}
-            </p>
-          )}
-
-          {/* Budget — pousse en bas pour aligner les deux cartes */}
-          <div className="flex-1" />
-          {isRight ? (
-            <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: holResult ? '#FF4D2E' : '#666' }}>
-              {holResult ? formatBudget(holResult.revealed_budget) : '???'}
-            </p>
-          ) : (
-            <p className="font-bold mt-1" style={{ fontSize: 'clamp(1.4rem, 5vw, 2rem)', color: '#FF4D2E' }}>
-              {left.budget != null ? formatBudget(left.budget) : '—'}
-            </p>
-          )}
-        </div>
-      )
-    }
-
-    return (
-      <AnimatedBackground className="min-h-screen text-white">
-        <style>{`
-          @keyframes wicSpin { to { transform: rotate(360deg); } }
-          @keyframes wicFadeIn { from { opacity: 0; } to { opacity: 1; } }
-          @keyframes wicPopIn { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
-        `}</style>
-
-        <div className="flex flex-col min-h-screen">
-          {/* Navbar */}
-          <nav className="absolute top-0 left-0 right-0 z-40 flex justify-between items-center text-[0.7rem] sm:text-xs uppercase tracking-widest text-white/70 pl-16 pr-16 pt-6 pb-3 sm:pl-20 sm:pr-24 sm:pt-7">
-            <span>{t.game.round} {currentRound}/{roundCount}</span>
-            {phase === 'guessing' && timerSeconds > 0 && (
-              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
-                <svg width="48" height="48" viewBox="0 0 56 56">
-                  <circle cx="28" cy="28" r="24" fill="none" stroke="#333" strokeWidth="4" />
-                  <circle cx="28" cy="28" r="24" fill="none" stroke="#FF4D2E" strokeWidth="4" strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 24}
-                    strokeDashoffset={2 * Math.PI * 24 * (1 - timeLeft / timerSeconds)}
-                    transform="rotate(-90 28 28)" style={{ transition: 'stroke-dashoffset 1s linear' }} />
-                  <text x="28" y="28" textAnchor="middle" dominantBaseline="central" fill="#fff" fontWeight="bold" fontSize="18">{timeLeft}</text>
-                </svg>
-              </div>
-            )}
-            <span>{formatScore(totalScore)} {t.game.points}</span>
-          </nav>
-
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 pt-20 pb-6 w-full max-w-4xl mx-auto">
-            {/* Cartes + VS */}
-            <div className="w-full flex flex-col md:flex-row items-stretch gap-3 md:gap-4">
-              {card(left, false)}
-              <div className="flex items-center justify-center font-bold" style={{ color: '#FF4D2E', fontSize: 'clamp(1.2rem, 4vw, 2rem)' }}>
-                VS
-              </div>
-              {card(right, true)}
-            </div>
-
-            {/* Zone d'action / révélation */}
-            <div className="w-full max-w-md">
-              {phase === 'guessing' ? (
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleHolGuess('lower')}
-                    disabled={!canAnswer}
-                    className="flex-1 min-h-[52px] py-3 font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 disabled:opacity-40"
-                    style={{
-                      backgroundColor: holChoice === 'lower' ? '#FF4D2E' : 'transparent',
-                      border: '1px solid #FF4D2E',
-                      borderRadius: '8px',
-                    }}
-                  >
-                    ◀ {t.game.lower}
-                  </button>
-                  <button
-                    onClick={() => handleHolGuess('higher')}
-                    disabled={!canAnswer}
-                    className="flex-1 min-h-[52px] py-3 font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 disabled:opacity-40"
-                    style={{
-                      backgroundColor: holChoice === 'higher' ? '#FF4D2E' : 'transparent',
-                      border: '1px solid #FF4D2E',
-                      borderRadius: '8px',
-                    }}
-                  >
-                    {t.game.higher} ▶
-                  </button>
-                </div>
-              ) : phase === 'waiting_others' ? (
-                <div className="flex flex-col items-center gap-3 p-5 text-center" style={{ backgroundColor: 'rgba(26,26,26,0.9)', borderRadius: '10px', border: '1px solid #222' }}>
-                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid #333', borderTopColor: '#FF4D2E', animation: 'wicSpin 0.8s linear infinite' }} />
-                  <p className="text-sm text-muted">{t.game.waitingOthers}</p>
-                  {isHost && showForceAdvance && (
-                    <button onClick={advanceHost} className="mt-1 w-full py-2.5 font-bold text-sm text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.35)', borderRadius: '6px' }}>
-                      {t.game.forceNext} →
-                    </button>
-                  )}
-                  {showStuckHint && <p className="text-xs leading-relaxed" style={{ color: '#666' }}>{t.game.stuckHint}</p>}
-                </div>
-              ) : null /* révélation : popup unifiée ci-dessous */}
-              {error && <p className="text-red-400 text-sm text-center mt-2">{error}</p>}
-            </div>
-          </div>
-        </div>
-
-        {/* Popup de score (solo & multi) */}
-        {phase === 'revealing' && revealModal}
-      </AnimatedBackground>
-    )
-  }
 
   // ─── BUDGET GUESS ───────────────────────────────────────────────────────────
   if (!currentMovie) return null

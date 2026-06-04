@@ -110,7 +110,15 @@ export function sanitizeSettings(raw: unknown): GameSettings {
   return { rounds, timer, difficulties, genres, gameMode }
 }
 
-// Nombre de films à charger : Higher or Lower compare 2 films par round.
+// ─── Higher or Lower (chaîne infinie) ────────────────────────────────────────
+// Le mode chaîne ne dépend plus du réglage `rounds` : il précharge un pool de films
+// (N films = N−1 maillons) puis le prolonge à la volée quand on approche la fin.
+export const HOL_INITIAL_POOL = 40 // films préchargés au démarrage
+export const HOL_REFILL = 20 // films ajoutés à chaque extension
+export const HOL_LOOKAHEAD = 6 // déclenche l'extension quand il reste ≤ N maillons
+
+// Nombre de films à charger au démarrage. Budget Guess = 1 film/round ; Higher or
+// Lower = pool initial fixe (chaîne infinie, le réglage `rounds` est ignoré).
 export function moviesNeeded(s: GameSettings): number {
-  return s.gameMode === 'higher_or_lower' ? s.rounds * 2 : s.rounds
+  return s.gameMode === 'higher_or_lower' ? HOL_INITIAL_POOL : s.rounds
 }

@@ -50,6 +50,11 @@ export interface DiscoverFilters {
   genreIds?: number[]
   /** Difficultés → traduites en filtres TMDB (votes / dates de sortie). Cumulées (ET). */
   difficulties?: DifficultyFilter[]
+  /**
+   * Surcharge le seuil `vote_count.gte`. Le mode Higher or Lower l'abaisse pour
+   * capter des films à plus petit budget (indies/mid) et casser le « tout-blockbuster ».
+   */
+  minVotes?: number
 }
 
 /**
@@ -86,6 +91,9 @@ export async function discoverMoviesWithBudget(
 
   const difficulties = new Set(filters.difficulties ?? [])
   if (difficulties.has('popular')) params['vote_count.gte'] = '3000'
+
+  // Override explicite (mode chaîne) : prime sur les seuils ci-dessus.
+  if (typeof filters.minVotes === 'number') params['vote_count.gte'] = String(filters.minVotes)
 
   const recent = difficulties.has('recent')
   const classics = difficulties.has('classics')

@@ -230,10 +230,13 @@ export default function LobbyRoomPage() {
               {!isHost && <span className="text-xs" style={{ color: '#555555' }}>{t.lobby.configuredByHost}</span>}
             </div>
 
-            <Field label={t.settings.rounds}>
-              <Toggle value={settings.rounds} disabled={!isHost} onChange={(v) => changeSetting('rounds', v)}
-                options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
-            </Field>
+            {/* Rounds : sans objet en Higher or Lower (chaîne infinie) → masqué. */}
+            {settings.gameMode !== 'higher_or_lower' && (
+              <Field label={t.settings.rounds}>
+                <Toggle value={settings.rounds} disabled={!isHost} onChange={(v) => changeSetting('rounds', v)}
+                  options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
+              </Field>
+            )}
             <Field label={t.settings.timer}>
               <Toggle value={settings.timer} disabled={!isHost} onChange={(v) => changeSetting('timer', v)}
                 options={TIMER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
@@ -242,6 +245,7 @@ export default function LobbyRoomPage() {
               <Toggle value={settings.gameMode} disabled={!isHost} onChange={(v) => changeSetting('gameMode', v)}
                 options={GAME_MODE_KEYS.map((k) => ({ value: k, label: t.settings.gameModes[k] }))} />
             </Field>
+            {/* Difficulté : en HoL elle filtre le vivier de films de la chaîne. */}
             <Field label={t.settings.difficulty}>
               <MultiToggle values={settings.difficulties} disabled={!isHost}
                 onToggle={(v) => changeSetting('difficulties', toggleMultiSelect(settings.difficulties, v, DIFFICULTY_KEYS, ['popular']))}

@@ -10,11 +10,12 @@ type PlayerRow = Database['public']['Tables']['players']['Row']
 export const dynamic = 'force-dynamic'
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { gameId: string } },
 ) {
   try {
     const { gameId } = params
+    const playerId = new URL(request.url).searchParams.get('player_id')
     const db = createClient() as any
 
     const gameResult = await db
@@ -38,35 +39,48 @@ export async function GET(
         .in('id', game.movie_ids) as { data: Partial<MovieRow>[] | null; error: Error | null },
     ])
 
-    // Higher or Lower : on révèle le budget des films "gauche" (index pairs) pour
-    // que le joueur puisse comparer ; le film "droite" (impair) reste caché.
+    // Higher or Lower (chaîne) : les budgets restent serveur. La liste est envoyée
+    // SANS budget ; seul celui de la référence courante du joueur est révélé (via
+    // reference_budget) pour l'affichage initial / la reprise après refresh.
     const isHoL =
       (game.game_settings as { gameMode?: string } | null)?.gameMode === 'higher_or_lower'
 
     const moviesById = Object.fromEntries((moviesResult.data ?? []).map((m) => [m.id!, m]))
-    const movies = game.movie_ids
+    const orderedRows: Partial<MovieRow>[] = game.movie_ids
       .map((id: number) => moviesById[id])
       .filter(Boolean)
-      .map((m: Partial<MovieRow>, index: number) => ({
-        id: m.id,
-        title: m.title,
-        title_fr: m.title_fr,
-        year: m.year,
-        director: m.director,
-        cast_list: Array.isArray(m.cast_list) ? (m.cast_list as string[]) : [],
-        poster_path: m.poster_path ?? null,
-        poster_url: getPosterUrl(m.poster_path ?? null),
-        genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
-        overview: m.overview,
-        overview_fr: m.overview_fr,
-        // budget visible seulement pour le film gauche en HoL
-        budget: isHoL && index % 2 === 0 ? m.budget : null,
-      }))
+    const movies = orderedRows.map((m: Partial<MovieRow>) => ({
+      id: m.id,
+      title: m.title,
+      title_fr: m.title_fr,
+      year: m.year,
+      director: m.director,
+      cast_list: Array.isArray(m.cast_list) ? (m.cast_list as string[]) : [],
+      poster_path: m.poster_path ?? null,
+      poster_url: getPosterUrl(m.poster_path ?? null),
+      genres: Array.isArray(m.genres) ? (m.genres as string[]) : [],
+      overview: m.overview,
+      overview_fr: m.overview_fr,
+      budget: null as number | null,
+    }))
+
+    // Position de la référence du joueur (= longueur de chaîne) + budget à révéler.
+    let holPosition: number | null = null
+    let referenceBudget: number | null = null
+    if (isHoL && playerId) {
+      const me = (playersResult.data ?? []).find((p) => p.id === playerId)
+      if (me) {
+        holPosition = me.total_score
+        referenceBudget = (orderedRows[holPosition]?.budget ?? null) as number | null
+      }
+    }
 
     return NextResponse.json({
       game,
       players: playersResult.data ?? [],
       movies,
+      hol_position: holPosition,
+      reference_budget: referenceBudget,
     })
   } catch (err) {
     console.error('GET game error:', err)

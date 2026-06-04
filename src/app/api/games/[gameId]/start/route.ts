@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { fetchRandomMoviesWithBudget } from '@/lib/tmdb/fetchMovies'
+import { fetchRandomMoviesWithBudget, fetchMovieChain } from '@/lib/tmdb/fetchMovies'
 import { sanitizeSettings, moviesNeeded } from '@/lib/gameSettings'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -63,13 +63,16 @@ export async function PATCH(
     }
 
     const settings = sanitizeSettings(gameRes.data.game_settings)
+    const isHoL = settings.gameMode === 'higher_or_lower'
     const count = moviesNeeded(settings)
     console.log(`[WIC] /start: réglages`, settings, `→ ${count} films`)
 
-    const movies = await fetchRandomMoviesWithBudget(count, {
-      genres: settings.genres,
-      difficulties: settings.difficulties,
-    }, excludeIds)
+    const movies = isHoL
+      ? await fetchMovieChain(count, { genres: settings.genres, difficulties: settings.difficulties }, excludeIds)
+      : await fetchRandomMoviesWithBudget(count, {
+          genres: settings.genres,
+          difficulties: settings.difficulties,
+        }, excludeIds)
     if (movies.length < count) {
       console.error(`[WIC] /start: pas assez de films (${movies.length}/${count})`)
       return NextResponse.json(

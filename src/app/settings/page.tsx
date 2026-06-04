@@ -87,9 +87,12 @@ function SettingsContent() {
         </h1>
 
         <div className="flex flex-col" style={{ gap: '28px', marginTop: '28px' }}>
-          <Section label={t.settings.rounds}>
-            <Toggle value={rounds} onChange={setRounds} options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
-          </Section>
+          {/* Rounds : sans objet en Higher or Lower (chaîne infinie) → masqué. */}
+          {gameMode !== 'higher_or_lower' && (
+            <Section label={t.settings.rounds}>
+              <Toggle value={rounds} onChange={setRounds} options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
+            </Section>
+          )}
 
           <Section label={t.settings.timer}>
             <Toggle value={timer} onChange={setTimer} options={TIMER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
@@ -103,6 +106,9 @@ function SettingsContent() {
             />
           </Section>
 
+          {/* Difficulté : en Higher or Lower elle filtre le vivier de films de la
+              chaîne (Populaires/Récents/Classiques), orthogonalement au mélange des
+              paliers de budget qui gère la dureté des comparaisons. */}
           <Section label={t.settings.difficulty}>
             <MultiToggle
               values={difficulties}

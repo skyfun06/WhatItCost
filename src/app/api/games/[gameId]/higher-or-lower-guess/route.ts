@@ -8,21 +8,13 @@ type PlayerRow = Database['public']['Tables']['players']['Row']
 
 interface Body {
   player_id: string
-  round_number: number
+  // Index (0-based) du film de RÉFÉRENCE (gauche) dans la chaîne. On compare
+  // movie_ids[position] (visible) à movie_ids[position + 1] (caché).
+  position: number
   guess: 'higher' | 'lower'
 }
 
 export const dynamic = 'force-dynamic'
-
-// Points selon l'écart relatif entre les deux budgets (si la réponse est juste).
-function pointsForGap(leftBudget: number, rightBudget: number): number {
-  if (!leftBudget) return 250
-  const gap = (Math.abs(rightBudget - leftBudget) / leftBudget) * 100
-  if (gap > 50) return 1000
-  if (gap >= 20) return 750
-  if (gap >= 10) return 500
-  return 250 // close call
-}
 
 export async function POST(
   request: Request,
@@ -30,14 +22,14 @@ export async function POST(
 ) {
   try {
     const body: Body = await request.json()
-    const { player_id, round_number, guess } = body
+    const { player_id, position, guess } = body
     const { gameId } = params
 
-    if (!player_id || typeof round_number !== 'number' || (guess !== 'higher' && guess !== 'lower')) {
+    if (!player_id || typeof position !== 'number' || (guess !== 'higher' && guess !== 'lower')) {
       return NextResponse.json({ error: 'Missing or invalid fields' }, { status: 400 })
     }
-    if (round_number < 1) {
-      return NextResponse.json({ error: 'Invalid round_number' }, { status: 400 })
+    if (position < 0) {
+      return NextResponse.json({ error: 'Invalid position' }, { status: 400 })
     }
 
     const db = createClient() as any
@@ -55,11 +47,14 @@ export async function POST(
       return NextResponse.json({ error: 'Game already finished' }, { status: 400 })
     }
 
-    // Higher or Lower : 2 films par round
-    const leftId = game.movie_ids[(round_number - 1) * 2]
-    const rightId = game.movie_ids[(round_number - 1) * 2 + 1]
-    if (leftId == null || rightId == null) {
-      return NextResponse.json({ error: 'Invalid round_number' }, { status: 400 })
+    const leftId = game.movie_ids[position]
+    const rightId = game.movie_ids[position + 1]
+    if (leftId == null) {
+      return NextResponse.json({ error: 'Invalid position' }, { status: 400 })
+    }
+    // Fin du pool atteinte : le client doit prolonger la chaîne puis rejouer.
+    if (rightId == null) {
+      return NextResponse.json({ need_extend: true }, { status: 200 })
     }
 
     const moviesRes = await db
@@ -73,46 +68,44 @@ export async function POST(
     const leftBudget = byId[leftId]
     const rightBudget = byId[rightId]
 
+    // Égalité parfaite → on considère "higher" gagnant (le caché ≥ la référence).
     const realComparison: 'higher' | 'lower' = rightBudget >= leftBudget ? 'higher' : 'lower'
     const correct = guess === realComparison
-    const points = correct ? pointsForGap(leftBudget, rightBudget) : 0
-
-    const roundInsert = await db.from('rounds').insert({
-      game_id: gameId,
-      player_id,
-      movie_id: rightId, // film "caché" comparé
-      round_number,
-      guess_amount: guess === 'higher' ? 1 : 0, // encodage higher/lower
-      score: points,
-    }) as { error: { code: string } | null }
-
-    if (roundInsert.error) {
-      if (roundInsert.error.code === '23505') {
-        return NextResponse.json({ error: 'Round already answered' }, { status: 409 })
-      }
-      console.error('[WIC] hol-guess: round insert error', roundInsert.error)
-      return NextResponse.json({ error: 'Failed to save round' }, { status: 500 })
-    }
 
     const playerResult = await db
       .from('players')
       .select('total_score')
       .eq('id', player_id)
+      .eq('game_id', gameId)
       .single() as { data: Pick<PlayerRow, 'total_score'> | null; error: Error | null }
-    if (playerResult.error) console.error('[WIC] hol-guess: player lookup', playerResult.error)
+    if (playerResult.error || !playerResult.data) {
+      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+    }
+    const currentLength = playerResult.data.total_score
 
-    const { error: scoreErr } = await db
-      .from('players')
-      .update({ total_score: (playerResult.data?.total_score ?? 0) + points })
-      .eq('id', player_id)
-    if (scoreErr) console.error('[WIC] hol-guess: total_score update', scoreErr)
+    // Le score (= longueur de chaîne) n'avance que sur une bonne réponse jouée À LA
+    // BONNE POSITION (= longueur actuelle). Update gardé `.eq('total_score', position)`
+    // : idempotent (un retry sur la même position ne double-compte pas) et anti-skip.
+    let chainLength = currentLength
+    if (correct && position === currentLength) {
+      const { error: scoreErr } = await db
+        .from('players')
+        .update({ total_score: currentLength + 1 })
+        .eq('id', player_id)
+        .eq('total_score', position)
+      if (scoreErr) {
+        console.error('[WIC] hol-guess: total_score update', scoreErr)
+      } else {
+        chainLength = currentLength + 1
+      }
+    }
 
     return NextResponse.json({
       correct,
-      points,
       revealed_budget: rightBudget,
       left_budget: leftBudget,
       real_comparison: realComparison,
+      chain_length: chainLength,
     })
   } catch (err) {
     console.error('[WIC] hol-guess error', err)

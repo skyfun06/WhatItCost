@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { fetchRandomMoviesWithBudget } from '@/lib/tmdb/fetchMovies'
+import { fetchRandomMoviesWithBudget, fetchMovieChain } from '@/lib/tmdb/fetchMovies'
 import { sanitizeSettings, moviesNeeded } from '@/lib/gameSettings'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -75,11 +75,15 @@ export async function POST(request: Request) {
     }
 
     // ── Solo : réglages choisis sur /settings → on récupère les films tout de suite ──
+    const isHoL = settings.gameMode === 'higher_or_lower'
     const count = moviesNeeded(settings)
-    const movies = await fetchRandomMoviesWithBudget(count, {
-      genres: settings.genres,
-      difficulties: settings.difficulties,
-    }, excludeIds)
+    // Higher or Lower : tirage diversifié + ordonné en chaîne. Budget Guess : tirage usuel.
+    const movies = isHoL
+      ? await fetchMovieChain(count, { genres: settings.genres, difficulties: settings.difficulties }, excludeIds)
+      : await fetchRandomMoviesWithBudget(count, {
+          genres: settings.genres,
+          difficulties: settings.difficulties,
+        }, excludeIds)
     if (movies.length < count) {
       return NextResponse.json(
         { error: 'Not enough movies for these settings. Try a broader genre/difficulty.' },
@@ -131,14 +135,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create player' }, { status: 500 })
     }
 
-    // Budget masqué (révélé après chaque guess). En Higher or Lower, le film
-    // "gauche" (index pair) garde son budget visible pour la comparaison.
-    const isHoL = settings.gameMode === 'higher_or_lower'
-    const moviesForClient = movies.map((m, index) => ({
+    // Budgets masqués côté client (révélés par le serveur à chaque guess). En mode
+    // chaîne, seul le budget de la référence de départ (index 0) est fourni.
+    const moviesForClient = movies.map((m) => ({
       id: m.id, title: m.title, title_fr: m.title_fr, year: m.year,
       director: m.director, cast_list: m.cast_list, poster_path: m.poster_path,
       poster_url: m.poster_url, genres: m.genres, overview: m.overview, overview_fr: m.overview_fr,
-      budget: isHoL && index % 2 === 0 ? m.budget : null,
+      budget: null as number | null,
     }))
 
     return NextResponse.json({
@@ -148,6 +151,8 @@ export async function POST(request: Request) {
       timerSeconds: settings.timer,
       gameMode: settings.gameMode,
       movies: moviesForClient,
+      // Référence de départ (chaîne) : budget du film d'index 0 à afficher d'emblée.
+      referenceBudget: isHoL ? (movies[0]?.budget ?? null) : null,
     })
   } catch (err) {
     console.error('Create game error:', err)
