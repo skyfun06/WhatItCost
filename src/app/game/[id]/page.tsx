@@ -57,6 +57,18 @@ function roundsFromMovies(movieCount: number, mode: string): number {
   return mode === 'higher_or_lower' ? Math.floor(movieCount / 2) : movieCount
 }
 
+// Égalité de SÉQUENCE (multi) : même longueur ET mêmes IDs DANS LE MÊME ORDRE.
+// L'ordre est essentiel — tous les joueurs doivent voir les films round par round
+// dans le même ordre, pas seulement le même ensemble. Sert à décider si la liste
+// locale doit être remplacée par la liste serveur (source de vérité).
+function sameMovieSequence(a: { id: number }[], b: { id: number }[]): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id) return false
+  }
+  return true
+}
+
 function scoreLabel(score: number, g: Translations['game']): string {
   if (score >= 4500) return g.scoreLabels.perfect
   if (score >= 3500) return g.scoreLabels.great
@@ -295,8 +307,20 @@ export default function GamePage() {
         setGameModeType(gm)
       }
       if (Array.isArray(data.movies) && data.movies.length) {
-        setMovies((prev) => (prev.length ? prev : (data.movies as GameMovie[])))
-        roundCountRef.current = roundsFromMovies(data.movies.length, gm)
+        // Multi : games.movie_ids fait AUTORITÉ. On adopte la liste serveur si la
+        // nôtre est vide (chargement initial) OU si la séquence d'IDs diffère
+        // (ordre compris). Garde-fou : on ne remplace JAMAIS la liste pendant une
+        // estimation en cours ('guessing') — le film ne doit pas changer sous les
+        // yeux du joueur. La resync se fait alors proprement au prochain reconcile
+        // hors 'guessing' (chargement, attente, révélation, changement de round).
+        const serverList = data.movies as GameMovie[]
+        setMovies((prev) => {
+          if (prev.length === 0) return serverList
+          if (sameMovieSequence(prev, serverList)) return prev
+          if (phaseRef.current === 'guessing') return prev // resync différée (anti-changement mid-round)
+          return serverList
+        })
+        roundCountRef.current = roundsFromMovies(serverList.length, gm)
       }
 
       // Une fois la partie terminée, plus rien à réconcilier (hors revanche ci-dessus)
@@ -419,7 +443,11 @@ export default function GamePage() {
       (localStorage.getItem('wic_game_mode_type') as 'budget_guess' | 'higher_or_lower') ?? 'budget_guess'
     console.log(`[WIC] game mount: ${parsedMovies.length} films chargés, mode=${storedModeType}, isHost=${localStorage.getItem('wic_is_host')}`)
     setPlayerId(storedPlayerId)
-    setMovies(parsedMovies)
+    // Multi : la liste de films fait autorité côté serveur (lue par reconcile).
+    // On n'amorce JAMAIS depuis le localStorage en multi — un wic_movies périmé
+    // (laissé par une partie précédente) provoquerait une désync hôte/invité, car
+    // l'hôte issu de /lobby/create ne réécrit pas wic_movies. Solo : inchangé.
+    setMovies(storedMode === 'multiplayer' ? [] : parsedMovies)
     setGameMode(storedMode)
     setGameModeType(storedModeType)
     gameModeTypeRef.current = storedModeType
