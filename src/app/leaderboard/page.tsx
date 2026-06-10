@@ -11,8 +11,8 @@ export default function LeaderboardPage() {
   return (
     <AnimatedBackground className="min-h-screen" style={{ backgroundColor: '#111111' }}>
       <Header />
-      <main className="min-h-screen pt-14">
-        <div className="max-w-2xl mx-auto px-4 py-10">
+      <main className="min-h-screen flex justify-center pt-14">
+        <div className="w-full max-w-2xl px-4 pt-10 pb-16">
           <LeaderboardTable />
         </div>
       </main>

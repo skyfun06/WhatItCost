@@ -32,6 +32,7 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
   async function send(playerName: string) {
     setStatus('sending')
     setError(null)
+    console.log(`[WIC] leaderboard submit → game_id=${gameId} player_id=${playerId} player_name=${playerName}`)
     try {
       const res = await fetch('/api/leaderboard/submit', {
         method: 'POST',
@@ -39,14 +40,28 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
         body: JSON.stringify({ game_id: gameId, player_id: playerId, player_name: playerName }),
       })
       const data = await res.json().catch(() => ({}))
+      console.log(`[WIC] leaderboard submit ← status=${res.status}`, data)
       if (res.status === 409) {
+        // Déjà soumis pour cette partie : pas une erreur. Le serveur renvoie le
+        // rang de l'entrée existante — on l'affiche.
+        setRank(typeof data.rank === 'number' ? data.rank : null)
         setStatus('already')
         return
       }
       if (!res.ok) {
-        setError(data.error === 'invalid_name' ? t.leaderboard.invalidName : t.leaderboard.submitError)
-        setStatus('editing')
-        setName(playerName)
+        if (data.error === 'invalid_name') {
+          setError(t.leaderboard.invalidName)
+          setStatus('editing')
+          setName(playerName)
+        } else if (data.error === 'invalid_score') {
+          // Score incohérent pour cette partie (ex: données corrompues) :
+          // réessayer ne changera rien, on l'explique au lieu de dire "Réessaie".
+          setError(t.leaderboard.invalidScore)
+          setStatus('idle')
+        } else {
+          setError(t.leaderboard.submitError)
+          setStatus('idle')
+        }
         return
       }
       storePlayerName(playerName)
@@ -91,7 +106,14 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
             )}
           </>
         ) : (
-          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{t.leaderboard.alreadySubmitted}</p>
+          <>
+            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{t.leaderboard.alreadySubmitted}</p>
+            {rank != null && (
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                {t.leaderboard.yourRank.replace('{rank}', String(rank))}
+              </p>
+            )}
+          </>
         )}
         <a href="/leaderboard" className="text-sm font-semibold underline" style={{ color: 'rgba(255,255,255,0.6)' }}>
           {t.leaderboard.viewLeaderboard}
@@ -140,7 +162,8 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
     <div className="w-full flex flex-col items-center gap-1.5">
       <button
         onClick={handleSubmitClick}
-        disabled={status === 'sending'}
+        // Pas de soumission tant que les identifiants de partie ne sont pas prêts
+        disabled={status === 'sending' || !gameId || !playerId}
         className="w-full min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider disabled:opacity-50"
         style={{ border: '1px solid #FF4D2E', color: '#FF4D2E', borderRadius: '6px', backgroundColor: 'rgba(255,77,46,0.08)' }}
       >

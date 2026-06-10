@@ -36,9 +36,9 @@ export async function POST(
 
     const gameResult = await db
       .from('games')
-      .select('movie_ids, status')
+      .select('movie_ids, status, game_settings')
       .eq('id', gameId)
-      .single() as { data: Pick<GameRow, 'movie_ids' | 'status'> | null; error: Error | null }
+      .single() as { data: Pick<GameRow, 'movie_ids' | 'status' | 'game_settings'> | null; error: Error | null }
 
     if (gameResult.error || !gameResult.data) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 })
@@ -46,6 +46,12 @@ export async function POST(
     const game = gameResult.data
     if (game.status === 'finished') {
       return NextResponse.json({ error: 'Game already finished' }, { status: 400 })
+    }
+    // Garde-fou de mode : un guess Budget Guess sur une partie Higher or Lower
+    // polluerait total_score (source autoritaire du leaderboard) avec des points
+    // budget. Vu en prod via le timer round-based qui s'armait derrière la chaîne.
+    if ((game.game_settings as { gameMode?: string } | null)?.gameMode === 'higher_or_lower') {
+      return NextResponse.json({ error: 'Wrong game mode for this endpoint' }, { status: 400 })
     }
     // Borne haute : le round doit exister dans cette partie (nb de films variable).
     if (round_number > game.movie_ids.length) {

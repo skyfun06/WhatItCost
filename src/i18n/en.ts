@@ -198,6 +198,7 @@ export const en = {
     yourRank: 'You are #{rank} on the leaderboard',
     alreadySubmitted: 'Score already submitted for this game.',
     invalidName: 'Invalid nickname (2 to 20 characters).',
+    invalidScore: 'Score not valid for this game — it cannot be submitted.',
     submitError: 'Submission failed. Try again.',
     viewLeaderboard: 'View leaderboard',
   },

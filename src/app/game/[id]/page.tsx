@@ -762,6 +762,11 @@ export default function GamePage() {
   useEffect(() => {
     if (phase !== 'guessing') return
     if (timerSeconds <= 0) return
+    // Higher or Lower : la chaîne (HigherLowerChain) a son propre minuteur. Celui-ci
+    // ne doit JAMAIS s'armer — la page reste montée derrière le composant chaîne et
+    // son auto-submit enverrait un guess Budget Guess sur la partie HoL (total_score
+    // pollué → soumission leaderboard rejetée en 422 invalid_score).
+    if (gameModeType === 'higher_or_lower') return
 
     const startMs =
       gameMode === 'multiplayer' && roundStartedAt ? new Date(roundStartedAt).getTime() : Date.now()
@@ -781,7 +786,7 @@ export default function GamePage() {
     tick() // initialise immédiatement (évite un flash à timerSeconds avant le 1er intervalle)
     id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [phase, currentRound, timerSeconds, gameMode, roundStartedAt])
+  }, [phase, currentRound, timerSeconds, gameMode, roundStartedAt, gameModeType])
 
   // Anti-blocage : l'hôte peut forcer l'avancement après 12s d'attente
   // (utile si un joueur a abandonné, surtout avec un minuteur ∞).

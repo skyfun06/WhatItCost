@@ -93,11 +93,17 @@ export default function HomeContent() {
           <span className="whitespace-nowrap">{t.home.statDuration}</span>
         </div>
 
-        {/* Classement global — lien discret, cohérent avec les stats */}
+        {/* Classement global — vrai bouton, contour corail : visible sans
+            concurrencer les deux CTA pleins au-dessus */}
         <Link
           href="/leaderboard"
-          className="text-xs font-bold uppercase tracking-[0.18em] transition-colors hover:text-white"
-          style={{ color: '#777777' }}
+          className="whitespace-nowrap py-3 px-8 font-bold text-xs uppercase tracking-[0.18em] text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.35)] active:translate-y-0 active:scale-[0.97]"
+          style={{
+            color: '#FF4D2E',
+            border: '1px solid rgba(255,77,46,0.6)',
+            borderRadius: '6px',
+            backgroundColor: 'rgba(255,77,46,0.08)',
+          }}
         >
           🏆 {t.nav.leaderboard}
         </Link>

@@ -198,6 +198,7 @@ export const fr = {
     yourRank: 'Tu es #{rank} du classement',
     alreadySubmitted: 'Score déjà soumis pour cette partie.',
     invalidName: 'Pseudo invalide (2 à 20 caractères).',
+    invalidScore: 'Score non valide pour cette partie — il ne peut pas être soumis.',
     submitError: 'Échec de l\'envoi. Réessaie.',
     viewLeaderboard: 'Voir le classement',
   },

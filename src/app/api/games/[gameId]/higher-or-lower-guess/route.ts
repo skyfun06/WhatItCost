@@ -36,15 +36,20 @@ export async function POST(
 
     const gameResult = await db
       .from('games')
-      .select('movie_ids, status')
+      .select('movie_ids, status, game_settings')
       .eq('id', gameId)
-      .single() as { data: Pick<GameRow, 'movie_ids' | 'status'> | null; error: Error | null }
+      .single() as { data: Pick<GameRow, 'movie_ids' | 'status' | 'game_settings'> | null; error: Error | null }
     if (gameResult.error || !gameResult.data) {
       return NextResponse.json({ error: 'Game not found' }, { status: 404 })
     }
     const game = gameResult.data
     if (game.status === 'finished') {
       return NextResponse.json({ error: 'Game already finished' }, { status: 400 })
+    }
+    // Garde-fou de mode (symétrique de /guess) : cette route ne doit incrémenter
+    // total_score (+1/maillon) que pour une vraie partie Higher or Lower.
+    if ((game.game_settings as { gameMode?: string } | null)?.gameMode !== 'higher_or_lower') {
+      return NextResponse.json({ error: 'Wrong game mode for this endpoint' }, { status: 400 })
     }
 
     const leftId = game.movie_ids[position]
