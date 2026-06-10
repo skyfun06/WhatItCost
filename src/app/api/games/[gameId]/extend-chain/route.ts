@@ -35,6 +35,12 @@ export async function POST(
       return NextResponse.json({ error: 'Game already finished' }, { status: 400 })
     }
 
+    // Défi du jour : la chaîne est FIGÉE (une extension serait aléatoire → les
+    // joueurs n'auraient plus le même défi). Finir le pool = écran de victoire.
+    if ((gameRes.data.game_settings as { daily?: boolean } | null)?.daily === true) {
+      return NextResponse.json({ movies: [], exhausted: true })
+    }
+
     const settings = sanitizeSettings(gameRes.data.game_settings)
     const existing: number[] = Array.isArray(gameRes.data.movie_ids) ? gameRes.data.movie_ids : []
 

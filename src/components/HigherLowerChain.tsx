@@ -7,9 +7,11 @@ import { Syne } from 'next/font/google'
 import { formatBudget } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import LeaderboardSubmit from '@/components/LeaderboardSubmit'
+import DailyCountdown from '@/components/DailyCountdown'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { HOL_LOOKAHEAD } from '@/lib/gameSettings'
+import { isDailyGame, recordDailyScore } from '@/lib/dailyChallenge'
 import { captureCard, shareImage, downloadBlob, tweetIntentUrl, copyText, shareUrl, SITE_URL } from '@/lib/share'
 
 // Police Syne (identité visuelle) pour la scorecard partageable.
@@ -80,6 +82,16 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
   const [newRecord, setNewRecord] = useState(false)
   const [players, setPlayers] = useState<PlayerScore[]>([])
   const [loadError, setLoadError] = useState(false)
+  // Cette partie est-elle le Défi du jour de ce navigateur ? (lu au montage)
+  const [isDaily, setIsDaily] = useState(false)
+  useEffect(() => { setIsDaily(isDailyGame(gameId)) }, [gameId])
+
+  // Défi du jour : fige le résultat (un seul essai/jour) dès le game over.
+  useEffect(() => {
+    if (isDaily && (phase === 'gameover' || phase === 'victory')) {
+      recordDailyScore(gameId, position)
+    }
+  }, [isDaily, phase, gameId, position])
 
   // Partage : modal d'aperçu de la scorecard + toast éphémère
   const [shareOpen, setShareOpen] = useState(false)
@@ -331,7 +343,9 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
     setPreviewScale(Math.min(1, maxW / 1200))
   }, [shareOpen])
 
-  const shareText = t.game.holShareText.replace('{n}', String(position))
+  const shareText = isDaily
+    ? t.daily.shareChain.replace('{n}', String(position))
+    : t.game.holShareText.replace('{n}', String(position))
   const link = shareUrl({ mode: 'chain', score: position })
 
   const doShareNative = useCallback(async () => {
@@ -488,8 +502,8 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
     return (
       <AnimatedBackground className="min-h-screen flex items-center justify-center p-4 sm:p-6 text-white text-center" style={{ backgroundColor: '#15331F', transition: 'background-color 0.6s ease' }} symbolOpacity={0.14}>
         <div className="w-full flex flex-col items-center gap-5 mx-auto p-7 sm:px-12 sm:py-11" style={{ maxWidth: '560px', backgroundColor: '#161616', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '20px' }}>
-          <p className="uppercase" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem', letterSpacing: '0.25em' }}>
-            {phase === 'victory' ? t.game.holVictory : t.game.holGameOver}
+          <p className="uppercase" style={{ color: isDaily ? '#FF4D2E' : 'rgba(255,255,255,0.6)', fontSize: '0.7rem', letterSpacing: '0.25em' }}>
+            {phase === 'victory' ? t.game.holVictory : isDaily ? t.daily.title : t.game.holGameOver}
           </p>
 
           <div className="flex flex-col items-center gap-1">
@@ -549,11 +563,22 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
           {/* Soumission au classement global (score lu côté serveur) */}
           <LeaderboardSubmit gameId={gameId} playerId={playerId} />
 
+          {/* Défi du jour : un seul essai → pas de "Rejouer", compte à rebours
+              vers le prochain défi + emplacement du classement du jour (étape 2) */}
+          {isDaily && (
+            <div className="w-full flex flex-col items-center gap-1.5">
+              <DailyCountdown />
+              <p className="text-xs" style={{ color: '#555555' }}>{t.daily.rankingSoon}</p>
+            </div>
+          )}
+
           <div className="flex flex-wrap justify-center gap-3 w-full">
             {gameMode === 'solo' ? (
+              !isDaily && (
               <button onClick={replaySolo} className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
                 {t.game.playAgain}
               </button>
+              )
             ) : (
               <button onClick={() => router.push('/lobby')} className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider" style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}>
                 {t.game.playAgain}

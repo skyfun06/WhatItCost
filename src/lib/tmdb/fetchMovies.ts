@@ -25,10 +25,12 @@ export interface MovieFilters {
   difficulties?: Difficulty[]
 }
 
-function shuffle<T>(arr: T[]): T[] {
+// rng injectable : Math.random par défaut (parties normales), PRNG seedé pour
+// le Défi du jour (sélection déterministe — voir src/lib/dailyChallenge.ts).
+function shuffle<T>(arr: T[], rng: () => number = Math.random): T[] {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
+    const j = Math.floor(rng() * (i + 1))
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
@@ -174,14 +176,17 @@ function budgetTier(budget: number): 0 | 1 | 2 | 3 {
  * Heuristique gloutonne : à chaque étape on choisit le prochain film selon le
  * film courant. Casse le « pile ou face » du tout-blockbuster.
  */
-function orderChain(movies: MovieWithBudget[]): MovieWithBudget[] {
+export function orderChain<T extends { budget: number }>(
+  movies: T[],
+  rng: () => number = Math.random,
+): T[] {
   if (movies.length <= 2) return movies
-  const pool = shuffle(movies)
-  const ordered: MovieWithBudget[] = [pool.shift()!]
+  const pool = shuffle(movies, rng)
+  const ordered: T[] = [pool.shift()!]
 
   while (pool.length) {
     const prev = ordered[ordered.length - 1]
-    const wantClose = Math.random() < 0.35
+    const wantClose = rng() < 0.35
     let bestIdx = 0
     let bestScore = -Infinity
     for (let i = 0; i < pool.length; i++) {
@@ -191,7 +196,7 @@ function orderChain(movies: MovieWithBudget[]): MovieWithBudget[] {
       // Sinon → on privilégie un palier différent (diversité d'échelle).
       const score = wantClose
         ? -Math.abs(ratio - 0.1) // proche de ~10 % d'écart
-        : (budgetTier(cand.budget) !== budgetTier(prev.budget) ? 1 : 0) + Math.random() * 0.5
+        : (budgetTier(cand.budget) !== budgetTier(prev.budget) ? 1 : 0) + rng() * 0.5
       if (score > bestScore) {
         bestScore = score
         bestIdx = i

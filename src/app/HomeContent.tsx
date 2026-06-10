@@ -59,25 +59,41 @@ export default function HomeContent() {
 
         {/* CTA buttons — largeur fixe + nowrap : taille/hauteur identiques en FR et EN */}
         <div
-          className="flex flex-col sm:flex-row gap-3 mx-auto"
+          className="flex flex-col gap-3 mx-auto"
           style={{ width: '100%', maxWidth: '480px' }}
         >
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link
+              href="/settings?mode=solo"
+              className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
+              style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+            >
+              {t.home.playSolo}
+            </Link>
+            <Link
+              href="/lobby/create"
+              className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
+              style={{
+                border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: '6px',
+              }}
+            >
+              {t.home.playFriends}
+            </Link>
+          </div>
+
+          {/* Défi du jour — même défi pour tous, nouveau chaque jour (minuit UTC) */}
           <Link
-            href="/settings?mode=solo"
-            className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
-            style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
-          >
-            {t.home.playSolo}
-          </Link>
-          <Link
-            href="/lobby/create"
-            className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
+            href="/daily"
+            className="whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.35)] active:translate-y-0 active:scale-[0.97]"
             style={{
-              border: '1px solid rgba(255,255,255,0.35)',
+              color: '#FF4D2E',
+              border: '1px solid rgba(255,77,46,0.6)',
+              backgroundColor: 'rgba(255,77,46,0.08)',
               borderRadius: '6px',
             }}
           >
-            {t.home.playFriends}
+            🎬 {t.daily.title}
           </Link>
         </div>
 

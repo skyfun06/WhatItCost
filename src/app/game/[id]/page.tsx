@@ -8,6 +8,8 @@ import { formatBudget, formatScore } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import HigherLowerChain from '@/components/HigherLowerChain'
 import LeaderboardSubmit from '@/components/LeaderboardSubmit'
+import DailyCountdown from '@/components/DailyCountdown'
+import { isDailyGame, recordDailyScore } from '@/lib/dailyChallenge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { captureCard, shareImage, downloadBlob, tweetIntentUrl, copyText, shareUrl, SITE_URL } from '@/lib/share'
@@ -712,8 +714,21 @@ export default function GamePage() {
     setTimeout(() => setToast(null), 2600)
   }, [])
 
+  // Cette partie est-elle le Défi du jour de ce navigateur ? (lu au montage)
+  const [isDaily, setIsDaily] = useState(false)
+  useEffect(() => { setIsDaily(isDailyGame(gameId)) }, [gameId])
+
+  // Défi du jour : fige le résultat (un seul essai/jour) à l'écran final.
+  useEffect(() => {
+    if (isDaily && phase === 'finished') {
+      recordDailyScore(gameId, totalScore)
+    }
+  }, [isDaily, phase, gameId, totalScore])
+
   // Texte + lien de partage (Budget Guess) — lien porteur du score pour l'embed OG.
-  const budgetShareText = t.game.shareText.replace('{score}', formatScore(totalScore))
+  const budgetShareText = isDaily
+    ? t.daily.shareBudget.replace('{score}', formatScore(totalScore))
+    : t.game.shareText.replace('{score}', formatScore(totalScore))
   const budgetLink = shareUrl({ mode: 'budget', score: totalScore })
 
   // a) Partage natif (Web Share niveau fichier) → menu OS ; repli téléchargement.
@@ -882,9 +897,9 @@ export default function GamePage() {
           {/* Label */}
           <p
             className="uppercase"
-            style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem', letterSpacing: '0.25em' }}
+            style={{ color: isDaily ? '#FF4D2E' : 'rgba(255,255,255,0.6)', fontSize: '0.7rem', letterSpacing: '0.25em' }}
           >
-            {t.game.finalScore}
+            {isDaily ? t.daily.title : t.game.finalScore}
           </p>
 
           {/* Big score — colored by performance */}
@@ -949,6 +964,15 @@ export default function GamePage() {
           {/* Soumission au classement global (score lu côté serveur) */}
           {playerId && <LeaderboardSubmit gameId={gameId} playerId={playerId} />}
 
+          {/* Défi du jour : un seul essai → pas de "Rejouer", compte à rebours
+              vers le prochain défi + emplacement du classement du jour (étape 2) */}
+          {isDaily && (
+            <div className="w-full flex flex-col items-center gap-1.5">
+              <DailyCountdown />
+              <p className="text-xs" style={{ color: '#555555' }}>{t.daily.rankingSoon}</p>
+            </div>
+          )}
+
           {/* Buttons */}
           <div className="flex flex-wrap justify-center gap-3 mt-2 w-full">
             {gameMode === 'multiplayer' ? (
@@ -959,7 +983,7 @@ export default function GamePage() {
               >
                 {t.game.rematch}
               </button>
-            ) : (
+            ) : !isDaily ? (
               <button
                 onClick={() => router.push('/game')}
                 className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
@@ -967,7 +991,7 @@ export default function GamePage() {
               >
                 {t.game.playAgain}
               </button>
-            )}
+            ) : null}
             <button
               onClick={() => setShareModalOpen(true)}
               className="flex-1 min-w-[140px] min-h-[44px] px-8 py-3 font-bold text-white uppercase tracking-wider"
