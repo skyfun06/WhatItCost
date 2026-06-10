@@ -203,13 +203,16 @@ export interface Database {
       }
 
       // ── leaderboard ───────────────────────────────────────────────────────────
+      // mode : 'budget' (Budget Guess) | 'chain' (Higher or Lower).
+      // 'solo' / 'multiplayer' = valeurs historiques, conservées par la contrainte
+      // CHECK élargie mais plus écrites par l'application.
       leaderboard: {
         Row: {
           id: string
           player_name: string
           score: number
           game_id: string | null
-          mode: 'solo' | 'multiplayer'
+          mode: 'solo' | 'multiplayer' | 'budget' | 'chain'
           created_at: string
           [key: string]: unknown
         }
@@ -218,7 +221,7 @@ export interface Database {
           player_name: string
           score: number
           game_id?: string | null
-          mode: 'solo' | 'multiplayer'
+          mode: 'solo' | 'multiplayer' | 'budget' | 'chain'
           created_at?: string
           [key: string]: unknown
         }
@@ -227,7 +230,7 @@ export interface Database {
           player_name?: string
           score?: number
           game_id?: string | null
-          mode?: 'solo' | 'multiplayer'
+          mode?: 'solo' | 'multiplayer' | 'budget' | 'chain'
           created_at?: string
           [key: string]: unknown
         }

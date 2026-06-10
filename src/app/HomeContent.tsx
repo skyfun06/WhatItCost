@@ -93,6 +93,15 @@ export default function HomeContent() {
           <span className="whitespace-nowrap">{t.home.statDuration}</span>
         </div>
 
+        {/* Classement global — lien discret, cohérent avec les stats */}
+        <Link
+          href="/leaderboard"
+          className="text-xs font-bold uppercase tracking-[0.18em] transition-colors hover:text-white"
+          style={{ color: '#777777' }}
+        >
+          🏆 {t.nav.leaderboard}
+        </Link>
+
       </div>
     </AnimatedBackground>
   )

@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatBudget, formatScore } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import HigherLowerChain from '@/components/HigherLowerChain'
+import LeaderboardSubmit from '@/components/LeaderboardSubmit'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { captureCard, shareImage, downloadBlob, tweetIntentUrl, copyText, shareUrl, SITE_URL } from '@/lib/share'
@@ -939,6 +940,9 @@ export default function GamePage() {
               ))}
             </div>
           )}
+
+          {/* Soumission au classement global (score lu côté serveur) */}
+          {playerId && <LeaderboardSubmit gameId={gameId} playerId={playerId} />}
 
           {/* Buttons */}
           <div className="flex flex-wrap justify-center gap-3 mt-2 w-full">

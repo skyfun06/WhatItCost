@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/hooks/useTranslation'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import { getStoredPlayerName, storePlayerName } from '@/lib/playerName'
 
 export default function LobbyCreatePage() {
   const router = useRouter()
@@ -11,6 +12,12 @@ export default function LobbyCreatePage() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Pré-remplit avec le pseudo persistant (wic_player_name), modifiable librement.
+  useEffect(() => {
+    const saved = getStoredPlayerName()
+    if (saved) setName(saved)
+  }, [])
 
   async function handleCreate() {
     const trimmed = name.trim()
@@ -42,6 +49,7 @@ export default function LobbyCreatePage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
+      storePlayerName(trimmed)
       localStorage.setItem('wic_game_id', data.gameId)
       localStorage.setItem('wic_player_id', data.playerId)
       localStorage.setItem('wic_game_mode', 'multiplayer')

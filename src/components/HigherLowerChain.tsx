@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Syne } from 'next/font/google'
 import { formatBudget } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import LeaderboardSubmit from '@/components/LeaderboardSubmit'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { HOL_LOOKAHEAD } from '@/lib/gameSettings'
@@ -544,6 +545,9 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
           >
             {t.game.share}
           </button>
+
+          {/* Soumission au classement global (score lu côté serveur) */}
+          <LeaderboardSubmit gameId={gameId} playerId={playerId} />
 
           <div className="flex flex-wrap justify-center gap-3 w-full">
             {gameMode === 'solo' ? (
