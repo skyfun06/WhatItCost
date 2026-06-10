@@ -23,8 +23,10 @@ export const dynamic = 'force-dynamic'
  * /higher-or-lower-guess l'incrémentent) et le borne par ce que la partie
  * permettait réellement (nb de films × score max par round).
  *
- * Anti double-soumission : index unique (game_id, player_name) côté base
- * → violation 23505 traduite en 409 propre.
+ * Une seule entrée par (player_name, mode) — index unique côté base — en
+ * gardant le meilleur score : nouveau pseudo → insert ; score amélioré →
+ * upsert ; score inférieur ou égal → aucune écriture, réponse informative
+ * { improved: false, best, rank }.
  */
 export async function POST(request: Request) {
   // Diagnostic : chaque sortie non-200 est loguée avec le motif exact et le
@@ -88,47 +90,56 @@ export async function POST(request: Request) {
       return fail(422, 'invalid_score', `score=${score} maxScore=${maxScore} movieCount=${movieCount} mode=${mode}`)
     }
 
-    const insert = await db.from('leaderboard').insert({
-      player_name: playerName,
-      score,
-      game_id,
-      mode,
-    }) as { error: { code?: string; message?: string } | null }
-    if (insert.error) {
-      if (insert.error.code === '23505') {
-        // Doublon = déjà soumis pour cette partie. Pas une erreur : on renvoie
-        // le rang de l'entrée existante pour que le client l'affiche.
-        const existing = await db
-          .from('leaderboard')
-          .select('score')
-          .eq('game_id', game_id)
-          .eq('player_name', playerName)
-          .single() as { data: { score: number } | null; error: Error | null }
-        let existingRank: number | null = null
-        if (existing.data) {
-          const better = await db
-            .from('leaderboard')
-            .select('id', { count: 'exact', head: true })
-            .eq('mode', mode)
-            .gt('score', existing.data.score) as { count: number | null; error: Error | null }
-          if (!better.error) existingRank = (better.count ?? 0) + 1
-        }
-        console.warn(`[WIC] leaderboard/submit 409 already_submitted game_id=${ctx.game_id} player_name=${ctx.player_name} rank=${existingRank}`)
-        return NextResponse.json({ error: 'already_submitted', rank: existingRank }, { status: 409 })
-      }
-      return fail(500, 'insert_failed', insert.error)
+    // Rang dans un mode pour un score donné = nb d'entrées strictement meilleures + 1.
+    const rankOf = async (s: number): Promise<number | null> => {
+      const better = await db
+        .from('leaderboard')
+        .select('id', { count: 'exact', head: true })
+        .eq('mode', mode)
+        .gt('score', s) as { count: number | null; error: Error | null }
+      return better.error ? null : (better.count ?? 0) + 1
     }
 
-    // Rang obtenu = nb d'entrées strictement meilleures dans le même mode + 1.
-    const countResult = await db
+    // UNE entrée par (pseudo, mode) : on garde le MEILLEUR score.
+    const existing = await db
       .from('leaderboard')
-      .select('id', { count: 'exact', head: true })
+      .select('score')
+      .eq('player_name', playerName)
       .eq('mode', mode)
-      .gt('score', score) as { count: number | null; error: Error | null }
-    const rank = countResult.error ? null : (countResult.count ?? 0) + 1
+      .maybeSingle() as { data: { score: number } | null; error: Error | null }
+    if (existing.error) {
+      return fail(500, 'lookup_failed', existing.error)
+    }
 
-    console.log(`[WIC] leaderboard/submit OK mode=${mode} score=${score} rank=${rank} game_id=${ctx.game_id} player_name=${ctx.player_name}`)
-    return NextResponse.json({ ok: true, mode, score, rank })
+    if (existing.data && score <= existing.data.score) {
+      // Pas une amélioration : on ne touche à rien. Pas une erreur non plus —
+      // le client affiche "Ton meilleur score reste X" + le rang existant.
+      const rank = await rankOf(existing.data.score)
+      console.log(`[WIC] leaderboard/submit NOT_IMPROVED mode=${mode} score=${score} best=${existing.data.score} player_name=${ctx.player_name}`)
+      return NextResponse.json({ ok: true, improved: false, best: existing.data.score, rank })
+    }
+
+    // Nouveau pseudo dans ce mode, ou score amélioré → UPSERT sur l'index unique
+    // (player_name, mode). created_at rafraîchi : départage des égalités par date
+    // du meilleur score. NB : deux soumissions simultanées du même pseudo peuvent
+    // théoriquement se croiser (dernière écriture gagne) — sans gravité ici.
+    const upsert = await db.from('leaderboard').upsert(
+      {
+        player_name: playerName,
+        score,
+        game_id,
+        mode,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'player_name,mode' },
+    ) as { error: { code?: string; message?: string } | null }
+    if (upsert.error) {
+      return fail(500, 'upsert_failed', upsert.error)
+    }
+
+    const rank = await rankOf(score)
+    console.log(`[WIC] leaderboard/submit OK mode=${mode} score=${score} rank=${rank} previousBest=${existing.data?.score ?? 'none'} game_id=${ctx.game_id} player_name=${ctx.player_name}`)
+    return NextResponse.json({ ok: true, improved: true, mode, score, rank, previousBest: existing.data?.score ?? null })
   } catch (err) {
     return fail(500, 'internal_error', err)
   }

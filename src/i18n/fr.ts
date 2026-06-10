@@ -195,6 +195,7 @@ export const fr = {
     confirmName: 'Valider',
     nicknamePlaceholder: 'Ton pseudo',
     submitted: 'Score enregistré !',
+    bestRemains: 'Ton meilleur score reste {score} — il est conservé au classement.',
     yourRank: 'Tu es #{rank} du classement',
     alreadySubmitted: 'Score déjà soumis pour cette partie.',
     invalidName: 'Pseudo invalide (2 à 20 caractères).',

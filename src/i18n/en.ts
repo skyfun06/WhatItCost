@@ -195,6 +195,7 @@ export const en = {
     confirmName: 'Confirm',
     nicknamePlaceholder: 'Your nickname',
     submitted: 'Score saved!',
+    bestRemains: 'Your best score is still {score} — it stays on the leaderboard.',
     yourRank: 'You are #{rank} on the leaderboard',
     alreadySubmitted: 'Score already submitted for this game.',
     invalidName: 'Invalid nickname (2 to 20 characters).',

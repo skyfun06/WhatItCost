@@ -1,12 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useTranslation } from '@/hooks/useTranslation'
 
+// N'est plus utilisé par /leaderboard (qui s'appuie sur le logo + LanguageToggle
+// globaux du layout) — reste en place pour le stub /results.
 export function Header() {
   const { t } = useTranslation()
-  const pathname = usePathname()
 
   return (
     <header className="fixed top-0 inset-x-0 z-40 border-b border-white/5 bg-bg/80 backdrop-blur-md">
@@ -18,18 +18,15 @@ export function Header() {
           WhatItCost
         </Link>
 
-        {/* Le sélecteur de langue est global (LanguageToggle, fixé en haut à droite).
-            Le lien Classement est masqué quand on est déjà sur la page. */}
-        {pathname !== '/leaderboard' && (
-          <nav className="flex items-center gap-4">
-            <Link
-              href="/leaderboard"
-              className="text-sm font-semibold text-muted hover:text-white transition-colors"
-            >
-              {t.nav.leaderboard}
-            </Link>
-          </nav>
-        )}
+        {/* Le sélecteur de langue est global (LanguageToggle, fixé en haut à droite) */}
+        <nav className="flex items-center gap-4">
+          <Link
+            href="/leaderboard"
+            className="text-sm font-semibold text-muted hover:text-white transition-colors"
+          >
+            {t.nav.leaderboard}
+          </Link>
+        </nav>
       </div>
     </header>
   )

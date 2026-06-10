@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from '@/hooks/useTranslation'
 import { getStoredPlayerName, storePlayerName, sanitizePlayerName, PLAYER_NAME_MAX } from '@/lib/playerName'
 
-type Status = 'idle' | 'editing' | 'sending' | 'done' | 'already'
+type Status = 'idle' | 'editing' | 'sending' | 'done' | 'already' | 'notImproved'
 
 interface Props {
   gameId: string
@@ -24,6 +24,7 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
   const [status, setStatus] = useState<Status>('idle')
   const [name, setName] = useState('')
   const [rank, setRank] = useState<number | null>(null)
+  const [best, setBest] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Lu après montage (localStorage indisponible côté serveur)
   const [storedName, setStoredName] = useState<string | null>(null)
@@ -67,6 +68,13 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
       storePlayerName(playerName)
       setStoredName(playerName)
       setRank(typeof data.rank === 'number' ? data.rank : null)
+      if (data.improved === false) {
+        // Le meilleur score de ce pseudo dans ce mode reste l'ancien : message
+        // informatif (pas une erreur), avec le meilleur score + son rang.
+        setBest(typeof data.best === 'number' ? data.best : null)
+        setStatus('notImproved')
+        return
+      }
       setStatus('done')
     } catch {
       setError(t.leaderboard.submitError)
@@ -92,28 +100,25 @@ export default function LeaderboardSubmit({ gameId, playerId }: Props) {
     send(cleaned)
   }
 
-  // ── Succès / déjà soumis : feedback à la place du bouton ──
-  if (status === 'done' || status === 'already') {
+  // ── Succès / meilleur score conservé / déjà soumis : feedback à la place du bouton ──
+  if (status === 'done' || status === 'already' || status === 'notImproved') {
     return (
       <div className="w-full flex flex-col items-center gap-1 py-1" aria-live="polite">
-        {status === 'done' ? (
-          <>
-            <p className="font-bold" style={{ color: '#FF4D2E' }}>✓ {t.leaderboard.submitted}</p>
-            {rank != null && (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                {t.leaderboard.yourRank.replace('{rank}', String(rank))}
-              </p>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{t.leaderboard.alreadySubmitted}</p>
-            {rank != null && (
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                {t.leaderboard.yourRank.replace('{rank}', String(rank))}
-              </p>
-            )}
-          </>
+        {status === 'done' && (
+          <p className="font-bold" style={{ color: '#FF4D2E' }}>✓ {t.leaderboard.submitted}</p>
+        )}
+        {status === 'notImproved' && (
+          <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
+            {t.leaderboard.bestRemains.replace('{score}', String(best ?? '—'))}
+          </p>
+        )}
+        {status === 'already' && (
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{t.leaderboard.alreadySubmitted}</p>
+        )}
+        {rank != null && (
+          <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>
+            {t.leaderboard.yourRank.replace('{rank}', String(rank))}
+          </p>
         )}
         <a href="/leaderboard" className="text-sm font-semibold underline" style={{ color: 'rgba(255,255,255,0.6)' }}>
           {t.leaderboard.viewLeaderboard}
