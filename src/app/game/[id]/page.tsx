@@ -9,6 +9,7 @@ import AnimatedBackground from '@/components/AnimatedBackground'
 import HigherLowerChain from '@/components/HigherLowerChain'
 import LeaderboardSubmit from '@/components/LeaderboardSubmit'
 import DailyCountdown from '@/components/DailyCountdown'
+import ShareScorecard from '@/components/ShareScorecard'
 import { isDailyGame, recordDailyScore } from '@/lib/dailyChallenge'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
@@ -824,11 +825,11 @@ export default function GamePage() {
     return () => clearTimeout(id)
   }, [phase, currentRound])
 
-  // Échelle de l'aperçu : ajuste la carte 800×450 à la largeur du modal/écran.
+  // Échelle de l'aperçu : ajuste la carte 1200×630 à la largeur du modal/écran.
   useEffect(() => {
     if (!shareModalOpen) return
-    const maxW = Math.min((typeof window !== 'undefined' ? window.innerWidth : 800) - 80, 520)
-    setPreviewScale(Math.min(1, maxW / 800))
+    const maxW = Math.min((typeof window !== 'undefined' ? window.innerWidth : 1200) - 48, 560)
+    setPreviewScale(Math.min(1, maxW / 1200))
   }, [shareModalOpen])
 
   // ─── Loading ───────────────────────────────────────────────────────────────
@@ -1035,7 +1036,7 @@ export default function GamePage() {
             <div
               className="w-full flex flex-col items-center gap-4"
               style={{
-                maxWidth: '560px',
+                maxWidth: '600px',
                 backgroundColor: '#1a1a1a',
                 border: '1px solid #333',
                 borderRadius: '16px',
@@ -1044,94 +1045,22 @@ export default function GamePage() {
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Aperçu : la carte 800×450 est mise à l'échelle pour l'affichage,
+              {/* Aperçu : la carte 1200×630 est mise à l'échelle pour l'affichage,
                   mais html2canvas la capture à sa taille native (haute résolution). */}
-              <div style={{ width: 800 * previewScale, height: 450 * previewScale, overflow: 'hidden' }}>
-                <div
+              <div style={{ width: 1200 * previewScale, height: 630 * previewScale, overflow: 'hidden' }}>
+                <ShareScorecard
                   ref={scoreCardRef}
-                  style={{
-                    width: '800px',
-                    height: '450px',
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: 'top left',
-                    backgroundColor: '#111111',
-                    color: '#ffffff',
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
-                  {/* Motif $ ? statique en diagonale */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: '-20%',
-                      transform: 'rotate(-20deg)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '38px',
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {Array.from({ length: 9 }).map((_, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          whiteSpace: 'nowrap',
-                          fontSize: '46px',
-                          fontWeight: 700,
-                          letterSpacing: '46px',
-                          color: '#ffffff',
-                          opacity: 0.05,
-                          lineHeight: 1,
-                        }}
-                      >
-                        {i % 2 === 0 ? '$ ? $ ? $ ? $ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ? $ ? $ ? $'}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Contenu */}
-                  <div
-                    style={{
-                      position: 'relative',
-                      zIndex: 1,
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      padding: '30px 44px',
-                    }}
-                  >
-                    <p style={{ color: '#FF4D2E', fontSize: '15px', fontWeight: 700, letterSpacing: '0.28em', textTransform: 'uppercase' }}>
-                      WHATITCOST.FR
-                    </p>
-                    <p style={{ fontSize: '5rem', fontWeight: 700, lineHeight: 1, marginTop: '8px' }}>
-                      {formatScore(totalScore)}
-                      <span style={{ fontSize: '2rem', marginLeft: '8px', color: 'rgba(255,255,255,0.7)' }}>PTS</span>
-                    </p>
-                    <p style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '4px' }}>
-                      {performanceLabel(pct, t.game)} 🎬
-                    </p>
-                    <div style={{ marginTop: '16px', width: '100%', maxWidth: '540px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                      {scores.map((s, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#888888' }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '400px' }}>
-                            {(gameModeType === 'higher_or_lower' ? movies[i * 2 + 1]?.title : movies[i]?.title) ?? `${t.game.round} ${i + 1}`}
-                          </span>
-                          <span style={{ color: '#cccccc', fontWeight: 600, marginLeft: '12px', whiteSpace: 'nowrap' }}>
-                            {formatScore(s)} {t.game.points}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Bas : texte + barre d'accent corail */}
-                  <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-                    <p style={{ textAlign: 'center', fontSize: '14px', color: '#ffffff', marginBottom: '12px' }}>whatitcost.fr</p>
-                    <div style={{ height: '8px', backgroundColor: '#FF4D2E' }} />
-                  </div>
-                </div>
+                  variant="budget"
+                  daily={isDaily}
+                  score={totalScore}
+                  maxScore={maxGameScore}
+                  verdict={performanceLabel(pct, t.game)}
+                  posters={movies
+                    .filter((m) => m.poster_path)
+                    .slice(0, 3)
+                    .map((m) => ({ id: m.id, title: m.title, posterPath: m.poster_path as string }))}
+                  previewScale={previewScale}
+                />
               </div>
 
               {/* Actions de partage (Web Share natif / X / copier le lien) */}

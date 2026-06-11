@@ -146,6 +146,9 @@ export const fr = {
     holShareText: 'J\'ai fait une chaîne de {n} films sur WhatItCost 🎬 Tu fais mieux ?',
     holCardChain: 'Chaîne de',
     holCardFilms: 'films',
+    cardModeBudget: 'Budget Guess',
+    cardModeChain: 'Higher or Lower',
+    cardOutOf: 'sur {max} pts',
   },
   lobby: {
     title: 'Multijoueur',

@@ -3,19 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Syne } from 'next/font/google'
 import { formatBudget } from '@/lib/utils/format'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import LeaderboardSubmit from '@/components/LeaderboardSubmit'
 import DailyCountdown from '@/components/DailyCountdown'
+import ShareScorecard from '@/components/ShareScorecard'
 import { useTranslation } from '@/hooks/useTranslation'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { HOL_LOOKAHEAD } from '@/lib/gameSettings'
 import { isDailyGame, recordDailyScore } from '@/lib/dailyChallenge'
 import { captureCard, shareImage, downloadBlob, tweetIntentUrl, copyText, shareUrl, SITE_URL } from '@/lib/share'
-
-// Police Syne (identité visuelle) pour la scorecard partageable.
-const syne = Syne({ subsets: ['latin'], weight: ['700', '800'], display: 'swap' })
 
 // Film de la chaîne, SANS budget (les budgets restent serveur, révélés par /guess).
 interface ChainMovie {
@@ -393,67 +390,15 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
       >
         {/* Aperçu : carte 1200×630 mise à l'échelle ; html2canvas la capture en natif. */}
         <div style={{ width: 1200 * previewScale, height: 630 * previewScale, overflow: 'hidden' }}>
-          <div
+          <ShareScorecard
             ref={scoreCardRef}
-            className={syne.className}
-            style={{
-              width: '1200px', height: '630px',
-              transform: `scale(${previewScale})`, transformOrigin: 'top left',
-              backgroundColor: '#111111', color: '#ffffff', overflow: 'hidden', position: 'relative',
-            }}
-          >
-            {/* Motif $ ? en diagonale */}
-            <div style={{ position: 'absolute', inset: '-20%', transform: 'rotate(-20deg)', display: 'flex', flexDirection: 'column', gap: '54px', pointerEvents: 'none' }}>
-              {Array.from({ length: 9 }).map((_, i) => (
-                <div key={i} style={{ whiteSpace: 'nowrap', fontSize: '64px', fontWeight: 700, letterSpacing: '64px', color: '#ffffff', opacity: 0.05, lineHeight: 1 }}>
-                  {i % 2 === 0 ? '$ ? $ ? $ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ? $ ? $ ?'}
-                </div>
-              ))}
-            </div>
-
-            {/* Contenu */}
-            <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 56px' }}>
-              <p style={{ color: '#FF4D2E', fontSize: '26px', fontWeight: 700, letterSpacing: '0.3em', textTransform: 'uppercase' }}>
-                WHATITCOST.FR
-              </p>
-
-              {/* Affiches des derniers films de la chaîne */}
-              {lastPosters.length > 0 && (
-                <div style={{ display: 'flex', gap: '18px', marginTop: '26px' }}>
-                  {lastPosters.map((m) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={m.id}
-                      src={`/api/poster?path=${encodeURIComponent(m.poster_path as string)}&size=w342`}
-                      alt={m.title}
-                      crossOrigin="anonymous"
-                      width={132}
-                      height={198}
-                      style={{ width: '132px', height: '198px', objectFit: 'cover', borderRadius: '12px', border: '2px solid rgba(255,255,255,0.12)' }}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <p style={{ color: '#FF4D2E', fontSize: '34px', fontWeight: 700, letterSpacing: '6px', textTransform: 'uppercase', marginTop: '30px' }}>
-                {t.game.holCardChain}
-              </p>
-              <p style={{ fontSize: '170px', fontWeight: 800, lineHeight: 1, color: '#ffffff' }}>{position}</p>
-              <p style={{ fontSize: '52px', fontWeight: 800, letterSpacing: '10px', textTransform: 'uppercase', color: '#ffffff' }}>
-                {t.game.holCardFilms}
-              </p>
-
-              {newRecord && (
-                <p style={{ marginTop: '18px', color: '#FF4D2E', fontSize: '30px', fontWeight: 700 }}>🏆 {t.game.holNewRecord}</p>
-              )}
-            </div>
-
-            {/* Bas : domaine + barre corail */}
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
-              <p style={{ textAlign: 'center', fontSize: '22px', color: '#ffffff', marginBottom: '16px' }}>whatitcost.fr</p>
-              <div style={{ height: '10px', backgroundColor: '#FF4D2E' }} />
-            </div>
-          </div>
+            variant="chain"
+            daily={isDaily}
+            score={position}
+            newRecord={newRecord}
+            posters={lastPosters.map((m) => ({ id: m.id, title: m.title, posterPath: m.poster_path as string }))}
+            previewScale={previewScale}
+          />
         </div>
 
         {/* Boutons de partage */}

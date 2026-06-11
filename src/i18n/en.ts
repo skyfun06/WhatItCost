@@ -146,6 +146,9 @@ export const en = {
     holShareText: 'I chained {n} movies on WhatItCost 🎬 Can you beat it?',
     holCardChain: 'Chain of',
     holCardFilms: 'movies',
+    cardModeBudget: 'Budget Guess',
+    cardModeChain: 'Higher or Lower',
+    cardOutOf: 'out of {max} pts',
   },
   lobby: {
     title: 'Multiplayer',
