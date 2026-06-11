@@ -5,70 +5,195 @@ import { ImageResponse } from 'next/og'
 //   - sans param      → image par défaut (marque)
 //   - ?mode=chain&score=29  → "CHAÎNE DE 29 FILMS"
 //   - ?mode=budget&score=4200 → "4,200 PTS"
+//
+// Aligné sur le design « split panel » des scorecards (ShareScorecard) : badge
+// de mode, score géant Syne, colonne droite avec cadres d'affiches fantômes +
+// motif $ ?, liseré et barre corail. La police Syne est embarquée (TTF statiques
+// à côté de cette route) — satori rend donc correctement les accents.
 export const runtime = 'edge'
 
-// Symboles $ / ? dispersés en fond, faible opacité
-const SYMBOLS = [
-  { c: '$', top: 48, left: 90, size: 96 },
-  { c: '?', top: 96, left: 1030, size: 120 },
-  { c: '?', top: 412, left: 110, size: 130 },
-  { c: '$', top: 470, left: 970, size: 96 },
-  { c: '$', top: 250, left: 1110, size: 72 },
-  { c: '?', top: 300, left: 24, size: 84 },
-  { c: '$', top: 540, left: 540, size: 64 },
-  { c: '?', top: 16, left: 560, size: 64 },
+const CORAL = '#FF4D2E'
+
+// Syne 700/800 chargées une fois par instance edge (pattern officiel next/og).
+const syneBold = fetch(new URL('./Syne-Bold.ttf', import.meta.url)).then((r) => r.arrayBuffer())
+const syneExtraBold = fetch(new URL('./Syne-ExtraBold.ttf', import.meta.url)).then((r) =>
+  r.arrayBuffer(),
+)
+
+// Cadres d'affiches fantômes : mêmes emplacements que la cascade de la
+// scorecard (188×282, rotations alternées), avec un symbole mystère au centre.
+const FRAME_SLOTS = [
+  { left: 38, top: 16, rotate: -5, symbol: '?' },
+  { left: 200, top: 138, rotate: 4, symbol: '$' },
+  { left: 70, top: 310, rotate: -2.5, symbol: '?' },
 ]
 
-function Background() {
-  return (
-    <>
-      {SYMBOLS.map((s, i) => (
-        <div
-          key={i}
-          style={{
-            position: 'absolute',
-            top: s.top,
-            left: s.left,
-            fontSize: s.size,
-            fontWeight: 700,
-            color: '#ffffff',
-            opacity: 0.06,
-          }}
-        >
-          {s.c}
-        </div>
-      ))}
-    </>
-  )
-}
-
-function Footer() {
+// Chrome commun des trois variantes : fond dégradé, glow corail, motif $ ? et
+// cadres fantômes à droite, liseré, wordmark et barre corail.
+function OgCard({ badge, children }: { badge?: string; children: React.ReactNode }) {
   return (
     <div
       style={{
-        position: 'absolute',
-        bottom: 42,
-        fontSize: 28,
-        fontWeight: 700,
-        color: '#FF4D2E',
-        letterSpacing: '2px',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        position: 'relative',
+        color: '#ffffff',
+        fontFamily: 'Syne',
+        backgroundColor: '#0d0d0d',
+        backgroundImage: 'linear-gradient(150deg, #181009 0%, #0d0d0d 45%, #0a0a0a 100%)',
       }}
     >
-      whatitcost.fr
+      {/* Glow corail diffus derrière le score */}
+      <div
+        style={{
+          position: 'absolute',
+          left: -140,
+          top: 110,
+          width: 820,
+          height: 520,
+          backgroundImage:
+            'radial-gradient(circle at 50% 50%, rgba(255,77,46,0.16) 0%, rgba(255,77,46,0) 65%)',
+        }}
+      />
+
+      {/* Colonne droite : motif $ ? + cadres d'affiches fantômes */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          width: 430,
+          height: 630,
+          display: 'flex',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: -180,
+            top: -160,
+            width: 800,
+            height: 960,
+            display: 'flex',
+            flexDirection: 'column',
+            transform: 'rotate(-18deg)',
+          }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              style={{
+                fontSize: 42,
+                fontWeight: 700,
+                letterSpacing: 38,
+                color: '#ffffff',
+                opacity: 0.05,
+                marginBottom: 36,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {i % 2 === 0 ? '$ ? $ ? $ ? $ ?' : '? $ ? $ ? $ ?'}
+            </div>
+          ))}
+        </div>
+        {FRAME_SLOTS.map((s, i) => (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              left: s.left,
+              top: s.top,
+              width: 188,
+              height: 282,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 14,
+              border: '1px solid rgba(255,255,255,0.16)',
+              backgroundImage:
+                'linear-gradient(160deg, rgba(255,77,46,0.12) 0%, rgba(255,255,255,0.03) 100%)',
+              boxShadow: '0 18px 40px rgba(0,0,0,0.6)',
+              transform: `rotate(${s.rotate}deg)`,
+            }}
+          >
+            <div style={{ fontSize: 110, fontWeight: 800, color: CORAL, opacity: 0.3 }}>
+              {s.symbol}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Liseré corail intérieur */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          right: 16,
+          bottom: 16,
+          border: '1px solid rgba(255,77,46,0.35)',
+          borderRadius: 18,
+        }}
+      />
+
+      {/* Colonne gauche : badge / contenu / wordmark */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 760,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '44px 0 42px 60px',
+        }}
+      >
+        {badge ? (
+          <div
+            style={{
+              display: 'flex',
+              padding: '12px 26px',
+              borderRadius: 999,
+              border: `1.5px solid ${CORAL}`,
+              backgroundColor: 'rgba(255,77,46,0.08)',
+              fontSize: 20,
+              fontWeight: 700,
+              letterSpacing: 4.4,
+              color: CORAL,
+              alignSelf: 'flex-start',
+            }}
+          >
+            {badge}
+          </div>
+        ) : (
+          <div style={{ display: 'flex' }} />
+        )}
+
+        {children}
+
+        <div style={{ display: 'flex', fontSize: 24, fontWeight: 800, letterSpacing: 4.8 }}>
+          <span style={{ color: '#ffffff' }}>WHATITCOST</span>
+          <span style={{ color: CORAL }}>.FR</span>
+        </div>
+      </div>
+
+      {/* Barre corail de pied de carte */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 10,
+          backgroundImage: 'linear-gradient(90deg, #FF4D2E 0%, #FF7A45 60%, #FF4D2E 100%)',
+        }}
+      />
     </div>
   )
-}
-
-const shell = {
-  width: '100%',
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column' as const,
-  alignItems: 'center',
-  justifyContent: 'center',
-  backgroundColor: '#111111',
-  position: 'relative' as const,
-  fontFamily: 'sans-serif',
 }
 
 export async function GET(req: Request) {
@@ -77,64 +202,93 @@ export async function GET(req: Request) {
   const scoreRaw = Number(searchParams.get('score'))
   const score = Number.isFinite(scoreRaw) && scoreRaw >= 0 ? Math.floor(scoreRaw) : null
 
+  const imageOptions = {
+    width: 1200,
+    height: 630,
+    fonts: [
+      { name: 'Syne', data: await syneBold, weight: 700 as const, style: 'normal' as const },
+      { name: 'Syne', data: await syneExtraBold, weight: 800 as const, style: 'normal' as const },
+    ],
+  }
+
   // ── Variante "chaîne" : CHAÎNE DE {score} FILMS ──
   if (mode === 'chain' && score !== null) {
     return new ImageResponse(
       (
-        <div style={shell}>
-          <Background />
-          <div style={{ fontSize: 44, fontWeight: 700, color: '#FF4D2E', letterSpacing: '4px', textTransform: 'uppercase' }}>
-            CHAINE DE
+        <OgCard badge="HIGHER OR LOWER">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: 9, color: CORAL }}>
+              CHAÎNE DE
+            </div>
+            {/* String() : satori rejette les enfants numériques */}
+            <div style={{ fontSize: 210, fontWeight: 800, lineHeight: 1, marginTop: 8 }}>
+              {String(score)}
+            </div>
+            <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: 20.7, marginTop: 10 }}>
+              FILMS
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginTop: 22 }}>
+              Tu fais mieux ?
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 320, fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{score}</span>
-          </div>
-          <div style={{ fontSize: 64, fontWeight: 800, color: '#ffffff', letterSpacing: '8px', textTransform: 'uppercase', marginTop: 4 }}>
-            FILMS
-          </div>
-          <div style={{ fontSize: 36, color: '#888888', marginTop: 20 }}>Tu fais mieux ?</div>
-          <Footer />
-        </div>
+        </OgCard>
       ),
-      { width: 1200, height: 630 },
+      imageOptions,
     )
   }
 
   // ── Variante "budget" : {score} PTS ──
   if (mode === 'budget' && score !== null) {
     const pretty = new Intl.NumberFormat('en-US').format(score)
+    // Même règle que la scorecard : taille ∝ longueur (Syne est large, ~0,85em/chiffre).
+    const scoreFontSize = Math.max(48, Math.min(180, Math.floor(700 / pretty.length)))
     return new ImageResponse(
       (
-        <div style={shell}>
-          <Background />
-          <div style={{ fontSize: 40, fontWeight: 700, color: '#FF4D2E', letterSpacing: '4px', textTransform: 'uppercase' }}>
-            MON SCORE
+        <OgCard badge="BUDGET GUESS">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline' }}>
+              <div style={{ fontSize: scoreFontSize, fontWeight: 800, lineHeight: 1 }}>{pretty}</div>
+              <div
+                style={{
+                  fontSize: Math.round(scoreFontSize * 0.24),
+                  fontWeight: 700,
+                  marginLeft: 16,
+                  letterSpacing: 3.3,
+                  color: CORAL,
+                }}
+              >
+                PTS
+              </div>
+            </div>
+            <div style={{ fontSize: 30, fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginTop: 24 }}>
+              Tu fais mieux ?
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', marginTop: 4 }}>
-            <span style={{ fontSize: 240, fontWeight: 800, color: '#ffffff', lineHeight: 1 }}>{pretty}</span>
-            <span style={{ fontSize: 80, fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginLeft: 16 }}>PTS</span>
-          </div>
-          <div style={{ fontSize: 36, color: '#888888', marginTop: 20 }}>Tu fais mieux ?</div>
-          <Footer />
-        </div>
+        </OgCard>
       ),
-      { width: 1200, height: 630 },
+      imageOptions,
     )
   }
 
-  // ── Défaut (marque) — inchangé ──
+  // ── Défaut (marque) ──
   return new ImageResponse(
     (
-      <div style={shell}>
-        <Background />
-        <div style={{ display: 'flex', fontSize: 150, fontWeight: 800, letterSpacing: '-4px' }}>
-          <span style={{ color: '#ffffff' }}>WHATITCOST</span>
-          <span style={{ color: '#FF4D2E' }}>?</span>
+      <OgCard>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {/* Wordmark empilé : Syne est trop large pour "WHATITCOST?" sur une
+              ligne dans les 700px utiles de la colonne gauche. */}
+          <div style={{ fontSize: 96, fontWeight: 800, lineHeight: 1.05 }}>WHAT</div>
+          <div style={{ fontSize: 96, fontWeight: 800, lineHeight: 1.05 }}>IT</div>
+          <div style={{ display: 'flex', fontSize: 96, fontWeight: 800, lineHeight: 1.05 }}>
+            <span style={{ color: '#ffffff' }}>COST</span>
+            <span style={{ color: CORAL }}>?</span>
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: 'rgba(255,255,255,0.45)', marginTop: 22 }}>
+            Devine le budget des films.
+          </div>
         </div>
-        <div style={{ fontSize: 40, color: '#888888', marginTop: 14 }}>Guess the movie budget.</div>
-        <Footer />
-      </div>
+      </OgCard>
     ),
-    { width: 1200, height: 630 },
+    { width: 1200, height: 630, fonts: imageOptions.fonts },
   )
 }
