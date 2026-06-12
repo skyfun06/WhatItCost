@@ -71,7 +71,7 @@ const ShareScorecard = forwardRef<HTMLDivElement, Props>(function ShareScorecard
   // en 800 fait ≈ 0.85em, d'où le coefficient prudent (+ place pour « PTS »).
   const scoreStr = variant === 'budget' ? formatScore(score) : String(score)
   const scoreFontSize =
-    variant === 'budget' ? Math.max(48, Math.min(180, Math.floor(700 / scoreStr.length))) : 210
+    variant === 'budget' ? Math.max(48, Math.min(180, Math.floor(660 / scoreStr.length))) : 210
 
   return (
     <div
@@ -243,12 +243,18 @@ const ShareScorecard = forwardRef<HTMLDivElement, Props>(function ShareScorecard
         {variant === 'budget' ? (
           <div>
             <p style={{ fontSize: `${scoreFontSize}px`, fontWeight: 800, lineHeight: 1, margin: 0, whiteSpace: 'nowrap' }}>
+              {/* Séparation score/PTS par un nbsp DANS le flux texte, PAS par une
+                  marge : html2canvas refait la mise en page inline avec ses propres
+                  métriques et IGNORE les marges des spans inline (PTS se retrouvait
+                  collé au dernier chiffre dans la capture). L'avance du nbsp, au
+                  corps du score donc proportionnelle, est respectée par les deux
+                  rendus. */}
               {scoreStr}
+              {'\u00A0'}
               <span
                 style={{
                   fontSize: `${Math.round(scoreFontSize * 0.24)}px`,
                   fontWeight: 700,
-                  marginLeft: '16px',
                   letterSpacing: '0.12em',
                   color: CORAL,
                 }}
