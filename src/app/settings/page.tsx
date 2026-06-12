@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import Toggle from '@/components/Toggle'
 import MultiToggle from '@/components/MultiToggle'
+import ThemePicker from '@/components/ThemePicker'
 import { useTranslation } from '@/hooks/useTranslation'
 import {
   ROUND_OPTIONS,
@@ -17,6 +18,7 @@ import {
   type Genre,
   type GameModeType,
 } from '@/lib/gameSettings'
+import { getTheme, type ThemeKey } from '@/lib/themes'
 
 // ── Section (libellé + toggle) ────────────────────────────────────────
 function Section({ label, children }: { label: string; children: ReactNode }) {
@@ -51,6 +53,19 @@ function SettingsContent() {
   const [difficulties, setDifficulties] = useState<Difficulty[]>(['popular'])
   const [genres, setGenres] = useState<Genre[]>(['all'])
   const [gameMode, setGameMode] = useState<GameModeType>('budget_guess')
+  const [theme, setTheme] = useState<ThemeKey | undefined>(undefined)
+
+  // Thème Budget-only (Pixar, Bond…) : la chaîne n'est pas jouable.
+  const budgetOnlyTheme = theme !== undefined && getTheme(theme)?.supportsChain === false
+
+  // Choisir un thème Budget-only alors que Higher or Lower est sélectionné →
+  // bascule propre sur Budget Guess (le serveur force la même règle).
+  function changeTheme(next: ThemeKey | undefined) {
+    setTheme(next)
+    if (next && getTheme(next)?.supportsChain === false && gameMode === 'higher_or_lower') {
+      setGameMode('budget_guess')
+    }
+  }
 
   function start(target: 'solo' | 'multi') {
     const params = new URLSearchParams({
@@ -61,9 +76,10 @@ function SettingsContent() {
     // Multi-sélection → un paramètre répété (lu via getAll côté destination).
     difficulties.forEach((d) => params.append('difficulties', d))
     genres.forEach((g) => params.append('genres', g))
+    if (theme) params.set('theme', theme)
     const qs = params.toString()
     try {
-      localStorage.setItem('gameSettings', JSON.stringify({ rounds, timer, difficulties, genres, gameMode }))
+      localStorage.setItem('gameSettings', JSON.stringify({ rounds, timer, difficulties, genres, gameMode, theme }))
     } catch {
       // ignore
     }
@@ -102,29 +118,47 @@ function SettingsContent() {
             <Toggle
               value={gameMode}
               onChange={setGameMode}
+              // Thème Budget-only → Higher or Lower non sélectionnable (grisé),
+              // la note sous la thématique explique pourquoi.
+              disabledValues={budgetOnlyTheme ? ['higher_or_lower'] : undefined}
               options={GAME_MODE_KEYS.map((key) => ({ value: key, label: t.settings.gameModes[key] }))}
             />
           </Section>
 
-          {/* Difficulté : en Higher or Lower elle filtre le vivier de films de la
-              chaîne (Populaires/Récents/Classiques), orthogonalement au mélange des
-              paliers de budget qui gère la dureté des comparaisons. */}
-          <Section label={t.settings.difficulty}>
-            <MultiToggle
-              values={difficulties}
-              onToggle={(v) => setDifficulties((cur) => toggleMultiSelect(cur, v, DIFFICULTY_KEYS, ['popular']))}
-              options={DIFFICULTY_KEYS.map((key) => ({ value: key, label: t.settings.difficulties[key] }))}
-            />
+          <Section label={t.settings.theme}>
+            <ThemePicker value={theme} onChange={changeTheme} />
+            {budgetOnlyTheme && (
+              <p style={{ marginTop: '8px', fontSize: '0.75rem', color: '#FF4D2E' }}>
+                {t.settings.themeBudgetOnly}
+              </p>
+            )}
           </Section>
 
-          <Section label={t.settings.genre}>
-            <MultiToggle
-              values={genres}
-              onToggle={(v) => setGenres((cur) => toggleMultiSelect(cur, v, GENRE_KEYS, ['all']))}
-              wrap
-              options={GENRE_KEYS.map((key) => ({ value: key, label: t.settings.genres[key] }))}
-            />
-          </Section>
+          {/* Un thème REMPLACE difficulté + genre (paramètres de tirage figés) :
+              les deux filtres sont masqués tant qu'un thème est sélectionné. */}
+          {!theme && (
+            <>
+              {/* Difficulté : en Higher or Lower elle filtre le vivier de films de la
+                  chaîne (Populaires/Récents/Classiques), orthogonalement au mélange des
+                  paliers de budget qui gère la dureté des comparaisons. */}
+              <Section label={t.settings.difficulty}>
+                <MultiToggle
+                  values={difficulties}
+                  onToggle={(v) => setDifficulties((cur) => toggleMultiSelect(cur, v, DIFFICULTY_KEYS, ['popular']))}
+                  options={DIFFICULTY_KEYS.map((key) => ({ value: key, label: t.settings.difficulties[key] }))}
+                />
+              </Section>
+
+              <Section label={t.settings.genre}>
+                <MultiToggle
+                  values={genres}
+                  onToggle={(v) => setGenres((cur) => toggleMultiSelect(cur, v, GENRE_KEYS, ['all']))}
+                  wrap
+                  options={GENRE_KEYS.map((key) => ({ value: key, label: t.settings.genres[key] }))}
+                />
+              </Section>
+            </>
+          )}
         </div>
 
         {/* Bouton(s) de lancement — selon le mode choisi sur l'accueil */}

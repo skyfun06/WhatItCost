@@ -44,7 +44,9 @@ export async function POST(
     const settings = sanitizeSettings(gameRes.data.game_settings)
     const existing: number[] = Array.isArray(gameRes.data.movie_ids) ? gameRes.data.movie_ids : []
 
-    const movies = await fetchMovieChain(HOL_REFILL, { genres: settings.genres, difficulties: settings.difficulties }, existing)
+    // Le thème suit la partie : une chaîne thématique se prolonge DANS le thème
+    // (sinon une chaîne Marvel se prolongerait avec des films quelconques).
+    const movies = await fetchMovieChain(HOL_REFILL, { genres: settings.genres, difficulties: settings.difficulties, theme: settings.theme }, existing)
     const fresh = movies.filter((m) => !existing.includes(m.id))
     if (fresh.length === 0) {
       // Aucun nouveau film disponible (filtre étroit + historique). Le client gère

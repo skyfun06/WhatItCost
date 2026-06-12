@@ -5,6 +5,7 @@ import {
   type DiscoverFilters,
   type DifficultyFilter,
 } from './client'
+import { getTheme } from '@/lib/themes'
 
 // Clés de genre (page Paramètres) → IDs de genre TMDB
 const TMDB_GENRE_IDS: Record<string, number> = {
@@ -23,6 +24,32 @@ export interface MovieFilters {
   genres?: string[]
   /** Difficultés sélectionnées (['all'] ou des clés spécifiques). */
   difficulties?: Difficulty[]
+  /**
+   * Clé de thématique (src/lib/themes.ts). Un thème REMPLACE genres et
+   * difficultés : ses paramètres de tirage figés priment. Clé absente ou
+   * inconnue → tirage normal, strictement identique au comportement historique.
+   */
+  theme?: string
+}
+
+/**
+ * Filtres /discover d'un thème, ou null (pas de thème, clé inconnue, ou source
+ * non-discover). null → l'appelant garde son calcul de filtres actuel intact.
+ */
+function themeDiscoverFilters(themeKey: string | undefined): DiscoverFilters | null {
+  const theme = getTheme(themeKey)
+  if (!theme || theme.source.kind !== 'discover') return null
+  const s = theme.source
+  return {
+    genreIds: s.genreIds,
+    companyIds: s.companyIds,
+    keywordIds: s.keywordIds,
+    originCountry: s.originCountry,
+    releasedFrom: s.releasedFrom,
+    releasedTo: s.releasedTo,
+    minVotes: s.minVotes,
+    minRuntime: s.minRuntime,
+  }
 }
 
 // rng injectable : Math.random par défaut (parties normales), PRNG seedé pour
@@ -116,7 +143,9 @@ export async function fetchRandomMoviesWithBudget(
     .filter((id): id is number => typeof id === 'number')
   const difficulties = (filters.difficulties ?? [])
     .filter((d): d is DifficultyFilter => d !== 'all')
-  const discoverFilters: DiscoverFilters = { genreIds, difficulties }
+  // Thème → ses filtres figés remplacent genres + difficultés.
+  const discoverFilters: DiscoverFilters =
+    themeDiscoverFilters(filters.theme) ?? { genreIds, difficulties }
 
   // Première page : on l'utilise (résultats réels) ET elle nous donne le nombre de
   // pages réellement disponibles pour ces filtres (un genre/difficulté étroit en a
@@ -228,9 +257,12 @@ export async function fetchMovieChain(
   // variés). Avec "Populaires", on respecte son seuil élevé (films très connus) :
   // dans client.ts minVotes écrase vote_count, donc on l'omet ici.
   const hasPopular = difficulties.includes('popular')
-  const discoverFilters: DiscoverFilters = hasPopular
-    ? { genreIds, difficulties }
-    : { genreIds, difficulties, minVotes: 150 }
+  // Thème → ses filtres figés (dont son propre seuil de votes) remplacent tout.
+  const discoverFilters: DiscoverFilters =
+    themeDiscoverFilters(filters.theme) ??
+    (hasPopular
+      ? { genreIds, difficulties }
+      : { genreIds, difficulties, minVotes: 150 })
 
   const firstPage = await discoverMoviesWithBudget(1, 'fr-FR', discoverFilters)
   const availablePages = Math.min(MAX_DISCOVER_PAGE, Math.max(1, firstPage.total_pages))

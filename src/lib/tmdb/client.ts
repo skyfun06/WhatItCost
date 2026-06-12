@@ -55,6 +55,18 @@ export interface DiscoverFilters {
    * capter des films à plus petit budget (indies/mid) et casser le « tout-blockbuster ».
    */
   minVotes?: number
+  // ── Filtres thématiques (src/lib/themes.ts) — jamais émis quand absents ──
+  /** Sociétés de production TMDB → with_companies (OU). */
+  companyIds?: number[]
+  /** Keywords TMDB → with_keywords (OU). */
+  keywordIds?: number[]
+  /** Pays d'origine ISO 3166-1 → with_origin_country. */
+  originCountry?: string
+  /** Date de sortie min/max (YYYY-MM-DD) → primary_release_date.gte/lte. */
+  releasedFrom?: string
+  releasedTo?: string
+  /** Durée minimale (minutes) → with_runtime.gte (exclut les courts-métrages). */
+  minRuntime?: number
 }
 
 /**
@@ -88,6 +100,15 @@ export async function discoverMoviesWithBudget(
     // OU : un film correspond s'il a AU MOINS un des genres choisis.
     params.with_genres = filters.genreIds.join('|')
   }
+
+  // Filtres thématiques. Un thème n'envoie jamais de difficultés (il les
+  // remplace), donc aucune interaction avec les contraintes de date ci-dessous.
+  if (filters.companyIds?.length) params.with_companies = filters.companyIds.join('|')
+  if (filters.keywordIds?.length) params.with_keywords = filters.keywordIds.join('|')
+  if (filters.originCountry) params.with_origin_country = filters.originCountry
+  if (filters.releasedFrom) params['primary_release_date.gte'] = filters.releasedFrom
+  if (filters.releasedTo) params['primary_release_date.lte'] = filters.releasedTo
+  if (typeof filters.minRuntime === 'number') params['with_runtime.gte'] = String(filters.minRuntime)
 
   const difficulties = new Set(filters.difficulties ?? [])
   if (difficulties.has('popular')) params['vote_count.gte'] = '3000'

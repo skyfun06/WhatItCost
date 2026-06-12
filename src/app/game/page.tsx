@@ -23,6 +23,7 @@ export default function SoloGamePage() {
           difficulties: difficulties.length ? difficulties : undefined,
           genres: genres.length ? genres : undefined,
           gameMode: sp.get('gameMode') ?? undefined,
+          theme: sp.get('theme') ?? undefined,
         }
 
         const res = await fetch('/api/games/create', {

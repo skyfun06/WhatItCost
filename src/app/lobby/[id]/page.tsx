@@ -8,6 +8,7 @@ import { getWatchedMovieIds } from '@/lib/watchedMovies'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import Toggle from '@/components/Toggle'
 import MultiToggle from '@/components/MultiToggle'
+import ThemePicker from '@/components/ThemePicker'
 import {
   ROUND_OPTIONS,
   TIMER_OPTIONS,
@@ -19,6 +20,7 @@ import {
   toggleMultiSelect,
   type GameSettings,
 } from '@/lib/gameSettings'
+import { getTheme, type ThemeKey } from '@/lib/themes'
 
 interface Player {
   id: string
@@ -131,16 +133,31 @@ export default function LobbyRoomPage() {
     }
   }, [gameId, router, redirectToGame, t.lobby.loadFailed])
 
-  // L'hôte change un réglage : maj locale immédiate + push serveur (propagé aux invités)
-  function changeSetting<K extends keyof GameSettings>(key: K, value: GameSettings[K]) {
+  // Thème Budget-only (Pixar, Bond…) : chaîne non jouable → HoL grisé + note.
+  const budgetOnlyTheme = settings.theme !== undefined && getTheme(settings.theme)?.supportsChain === false
+
+  // L'hôte change un ou plusieurs réglages : maj locale immédiate + push serveur
+  // (propagé aux invités via Realtime + polling)
+  function changeSettings(patch: Partial<GameSettings>) {
     if (!isHost) return
-    const next = { ...settings, [key]: value }
+    const next = { ...settings, ...patch }
     setSettings(next)
     fetch(`/api/games/${gameId}/settings`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ playerId, settings: next }),
     }).catch((e) => console.error('[WIC] lobby: settings update', e))
+  }
+
+  // Thème : peut entraîner une bascule de mode dans le MÊME patch (thème
+  // Budget-only choisi alors que Higher or Lower est actif) — même règle que
+  // sanitizeSettings côté serveur, pour que l'UI ne mente jamais aux joueurs.
+  function changeTheme(next: ThemeKey | undefined) {
+    const budgetOnly = next !== undefined && getTheme(next)?.supportsChain === false
+    changeSettings({
+      theme: next,
+      ...(budgetOnly && settings.gameMode === 'higher_or_lower' ? { gameMode: 'budget_guess' as const } : {}),
+    })
   }
 
   async function handleStart() {
@@ -233,29 +250,41 @@ export default function LobbyRoomPage() {
             {/* Rounds : sans objet en Higher or Lower (chaîne infinie) → masqué. */}
             {settings.gameMode !== 'higher_or_lower' && (
               <Field label={t.settings.rounds}>
-                <Toggle value={settings.rounds} disabled={!isHost} onChange={(v) => changeSetting('rounds', v)}
+                <Toggle value={settings.rounds} disabled={!isHost} onChange={(v) => changeSettings({ rounds: v })}
                   options={ROUND_OPTIONS.map((r) => ({ value: r, label: r }))} />
               </Field>
             )}
             <Field label={t.settings.timer}>
-              <Toggle value={settings.timer} disabled={!isHost} onChange={(v) => changeSetting('timer', v)}
+              <Toggle value={settings.timer} disabled={!isHost} onChange={(v) => changeSettings({ timer: v })}
                 options={TIMER_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />
             </Field>
             <Field label={t.settings.gameMode}>
-              <Toggle value={settings.gameMode} disabled={!isHost} onChange={(v) => changeSetting('gameMode', v)}
+              <Toggle value={settings.gameMode} disabled={!isHost} onChange={(v) => changeSettings({ gameMode: v })}
+                disabledValues={budgetOnlyTheme ? ['higher_or_lower'] : undefined}
                 options={GAME_MODE_KEYS.map((k) => ({ value: k, label: t.settings.gameModes[k] }))} />
             </Field>
-            {/* Difficulté : en HoL elle filtre le vivier de films de la chaîne. */}
-            <Field label={t.settings.difficulty}>
-              <MultiToggle values={settings.difficulties} disabled={!isHost}
-                onToggle={(v) => changeSetting('difficulties', toggleMultiSelect(settings.difficulties, v, DIFFICULTY_KEYS, ['popular']))}
-                options={DIFFICULTY_KEYS.map((k) => ({ value: k, label: t.settings.difficulties[k] }))} />
+            <Field label={t.settings.theme}>
+              <ThemePicker value={settings.theme} disabled={!isHost} onChange={changeTheme} />
+              {budgetOnlyTheme && (
+                <p style={{ fontSize: '0.75rem', color: '#FF4D2E' }}>{t.settings.themeBudgetOnly}</p>
+              )}
             </Field>
-            <Field label={t.settings.genre}>
-              <MultiToggle values={settings.genres} disabled={!isHost} wrap
-                onToggle={(v) => changeSetting('genres', toggleMultiSelect(settings.genres, v, GENRE_KEYS, ['all']))}
-                options={GENRE_KEYS.map((k) => ({ value: k, label: t.settings.genres[k] }))} />
-            </Field>
+            {/* Un thème REMPLACE difficulté + genre → filtres masqués si thème. */}
+            {!settings.theme && (
+              <>
+                {/* Difficulté : en HoL elle filtre le vivier de films de la chaîne. */}
+                <Field label={t.settings.difficulty}>
+                  <MultiToggle values={settings.difficulties} disabled={!isHost}
+                    onToggle={(v) => changeSettings({ difficulties: toggleMultiSelect(settings.difficulties, v, DIFFICULTY_KEYS, ['popular']) })}
+                    options={DIFFICULTY_KEYS.map((k) => ({ value: k, label: t.settings.difficulties[k] }))} />
+                </Field>
+                <Field label={t.settings.genre}>
+                  <MultiToggle values={settings.genres} disabled={!isHost} wrap
+                    onToggle={(v) => changeSettings({ genres: toggleMultiSelect(settings.genres, v, GENRE_KEYS, ['all']) })}
+                    options={GENRE_KEYS.map((k) => ({ value: k, label: t.settings.genres[k] }))} />
+                </Field>
+              </>
+            )}
           </div>
 
           {/* Players */}

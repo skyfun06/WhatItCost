@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { fetchRandomMoviesWithBudget, fetchMovieChain } from '@/lib/tmdb/fetchMovies'
-import { sanitizeSettings, moviesNeeded } from '@/lib/gameSettings'
+import { sanitizeSettings, moviesNeeded, HOL_THEMED_MIN_START } from '@/lib/gameSettings'
 import type { Database } from '@/lib/supabase/database.types'
 
 type GameRow = Database['public']['Tables']['games']['Row']
@@ -67,14 +67,20 @@ export async function PATCH(
     const count = moviesNeeded(settings)
     console.log(`[WIC] /start: réglages`, settings, `→ ${count} films`)
 
+    // Le thème (si présent) remplace genres + difficultés dans le tirage.
     const movies = isHoL
-      ? await fetchMovieChain(count, { genres: settings.genres, difficulties: settings.difficulties }, excludeIds)
+      ? await fetchMovieChain(count, { genres: settings.genres, difficulties: settings.difficulties, theme: settings.theme }, excludeIds)
       : await fetchRandomMoviesWithBudget(count, {
           genres: settings.genres,
           difficulties: settings.difficulties,
+          theme: settings.theme,
         }, excludeIds)
-    if (movies.length < count) {
-      console.error(`[WIC] /start: pas assez de films (${movies.length}/${count})`)
+    // Chaîne THÉMATIQUE : pool court (≥ HOL_THEMED_MIN_START) accepté plutôt qu'un
+    // 503 — l'épuisement déclenche l'écran de victoire. settings.theme + HoL
+    // implique supportsChain (sanitizeSettings force budget_guess sinon).
+    const minCount = isHoL && settings.theme ? Math.min(HOL_THEMED_MIN_START, count) : count
+    if (movies.length < minCount) {
+      console.error(`[WIC] /start: pas assez de films (${movies.length}/${count}, min=${minCount})`)
       return NextResponse.json(
         { error: 'Not enough movies for these settings. Try a broader genre/difficulty.' },
         { status: 503 },

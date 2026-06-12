@@ -1,5 +1,7 @@
 // Réglages de partie partagés (page Réglages, lobby, routes API).
 
+import { getTheme } from '@/lib/themes'
+
 export const ROUND_OPTIONS = [3, 5, 10] as const
 
 export const TIMER_OPTIONS = [
@@ -25,6 +27,11 @@ export interface GameSettings {
   difficulties: Difficulty[]
   genres: Genre[]
   gameMode: GameModeType
+  /**
+   * Clé de thématique (src/lib/themes.ts). Présente → le tirage ignore genres
+   * et difficultés (le thème les remplace). Absente → comportement historique.
+   */
+  theme?: string
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -104,10 +111,18 @@ export function sanitizeSettings(raw: unknown): GameSettings {
   const timer = [0, 15, 30, 60].includes(Number(r.timer)) ? Number(r.timer) : 30
   const difficulties = sanitizeMulti(r.difficulties, r.difficulty, DIFFICULTY_KEYS, ['popular'])
   const genres = sanitizeMulti(r.genres, r.genre, GENRE_KEYS, ['all'])
-  const gameMode = (GAME_MODE_KEYS as readonly string[]).includes(r.gameMode as string)
+  let gameMode = (GAME_MODE_KEYS as readonly string[]).includes(r.gameMode as string)
     ? (r.gameMode as GameModeType)
     : 'budget_guess'
-  return { rounds, timer, difficulties, genres, gameMode }
+  // Thème : clé inconnue → absent (tirage normal). Toutes les routes passent par
+  // ici (create, start, settings, rematch), donc ces invariants tiennent partout.
+  const theme = getTheme(r.theme)
+  // Thème au vivier trop maigre pour la chaîne → Budget Guess forcé CÔTÉ SERVEUR
+  // (même un body forgé ne peut pas démarrer une chaîne Pixar/Bond).
+  if (theme && !theme.supportsChain && gameMode === 'higher_or_lower') {
+    gameMode = 'budget_guess'
+  }
+  return { rounds, timer, difficulties, genres, gameMode, ...(theme ? { theme: theme.key } : {}) }
 }
 
 // ─── Higher or Lower (chaîne infinie) ────────────────────────────────────────
@@ -117,8 +132,20 @@ export const HOL_INITIAL_POOL = 40 // films préchargés au démarrage
 export const HOL_REFILL = 20 // films ajoutés à chaque extension
 export const HOL_LOOKAHEAD = 6 // déclenche l'extension quand il reste ≤ N maillons
 
+// Filet pour les chaînes THÉMATIQUES uniquement : si les exclusions (films déjà
+// joués) + les budgets manquants réduisent temporairement le tirage sous le pool
+// visé, on démarre quand même avec ≥ N films (l'épuisement déclenche l'écran de
+// victoire existant) au lieu d'un 503. Les thèmes supportant la chaîne ont tous
+// un vivier structurellement large (≥ 25 par design, ≥ ~100 mesuré) : ce filet
+// couvre l'aléa de session, pas un thème maigre — et les thèmes Budget-only ne
+// peuvent pas l'atteindre (sanitizeSettings force budget_guess en amont).
+export const HOL_THEMED_MIN_START = 15
+
 // Nombre de films à charger au démarrage. Budget Guess = 1 film/round ; Higher or
-// Lower = pool initial fixe (chaîne infinie, le réglage `rounds` est ignoré).
+// Lower = pool initial fixe (chaîne infinie, le réglage `rounds` est ignoré),
+// éventuellement plafonné par le thème (vivier limité → chaîne plus courte).
 export function moviesNeeded(s: GameSettings): number {
-  return s.gameMode === 'higher_or_lower' ? HOL_INITIAL_POOL : s.rounds
+  if (s.gameMode !== 'higher_or_lower') return s.rounds
+  const cap = getTheme(s.theme)?.chainPoolCap
+  return cap ? Math.min(HOL_INITIAL_POOL, cap) : HOL_INITIAL_POOL
 }

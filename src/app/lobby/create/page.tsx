@@ -41,6 +41,7 @@ export default function LobbyCreatePage() {
         difficulties: difficulties.length ? difficulties : undefined,
         genres: genres.length ? genres : undefined,
         gameMode: sp.get('gameMode') ?? undefined,
+        theme: sp.get('theme') ?? undefined,
       }
 
       // Multijoueur : on crée juste la partie (waiting). Les films sont générés

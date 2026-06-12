@@ -11,23 +11,28 @@ export interface ToggleOption<T> {
  * Sélecteur façon Discord : une barre unique avec un indicateur corail qui
  * glisse vers l'option sélectionnée. Partagé par la page Réglages et le lobby.
  * `disabled` : lecture seule (utilisé pour les invités dans le lobby).
+ * `disabledValues` : options individuellement non sélectionnables (ex: mode
+ * Higher or Lower quand un thème Budget-only est choisi).
  */
 export default function Toggle<T extends string | number>({
   options,
   value,
   onChange,
   disabled = false,
+  disabledValues,
   wrap = false,
 }: {
   options: ToggleOption<T>[]
   value: T
   onChange: (v: T) => void
   disabled?: boolean
+  disabledValues?: T[]
   /** Pills qui passent à la ligne (sans indicateur glissant) — pour beaucoup d'options. */
   wrap?: boolean
 }) {
   const count = options.length
   const index = Math.max(0, options.findIndex((o) => o.value === value))
+  const isOptDisabled = (v: T) => disabled || (disabledValues?.includes(v) ?? false)
 
   // ── Variante "wrap" : pills sur plusieurs lignes ──
   if (wrap) {
@@ -35,13 +40,14 @@ export default function Toggle<T extends string | number>({
       <div className="flex flex-wrap gap-2" style={{ opacity: disabled ? 0.55 : 1 }}>
         {options.map((opt) => {
           const selected = opt.value === value
+          const optDisabled = isOptDisabled(opt.value)
           return (
             <button
               key={String(opt.value)}
               type="button"
               aria-pressed={selected}
-              disabled={disabled}
-              onClick={() => !disabled && onChange(opt.value)}
+              disabled={optDisabled}
+              onClick={() => !optDisabled && onChange(opt.value)}
               style={{
                 padding: '8px 16px',
                 fontSize: '0.85rem',
@@ -50,7 +56,8 @@ export default function Toggle<T extends string | number>({
                 fontWeight: selected ? 700 : 400,
                 backgroundColor: selected ? '#FF4D2E' : '#111111',
                 border: `1px solid ${selected ? '#FF4D2E' : '#333333'}`,
-                cursor: disabled ? 'default' : 'pointer',
+                cursor: optDisabled ? 'not-allowed' : 'pointer',
+                opacity: !disabled && optDisabled ? 0.35 : 1,
                 whiteSpace: 'nowrap',
                 transition: 'all 0.15s ease',
               }}
@@ -93,13 +100,14 @@ export default function Toggle<T extends string | number>({
 
       {options.map((opt) => {
         const selected = opt.value === value
+        const optDisabled = isOptDisabled(opt.value)
         return (
           <button
             key={String(opt.value)}
             type="button"
             aria-pressed={selected}
-            disabled={disabled}
-            onClick={() => !disabled && onChange(opt.value)}
+            disabled={optDisabled}
+            onClick={() => !optDisabled && onChange(opt.value)}
             style={{
               position: 'relative',
               zIndex: 1,
@@ -110,7 +118,8 @@ export default function Toggle<T extends string | number>({
               fontSize: 'clamp(0.7rem, 2.6vw, 0.85rem)',
               color: selected ? '#ffffff' : '#888888',
               fontWeight: selected ? 700 : 400,
-              cursor: disabled ? 'default' : 'pointer',
+              cursor: optDisabled ? 'not-allowed' : 'pointer',
+              opacity: !disabled && optDisabled ? 0.35 : 1,
               borderRadius: '6px',
               background: 'transparent',
               border: 'none',
