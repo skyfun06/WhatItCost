@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Syne } from 'next/font/google'
+import AnimatedBackground from '@/components/AnimatedBackground'
 
 // Footer global, monté dans le layout racine — visible sur tout le site.
 // Server component statique (FR) : aucun hook, contenu indexable partout, ce qui
@@ -7,6 +8,12 @@ import { Syne } from 'next/font/google'
 // pour l'indexation et pour AdSense). Compact et aéré : il s'affiche sous le
 // contenu plein écran du jeu sans en altérer la mise en page. La bannière café
 // réserve déjà 60px en bas du <body>, donc pas de padding bas supplémentaire ici.
+//
+// Intégration visuelle : plutôt qu'un bloc sombre rapporté, le footer reprend la
+// MÊME surface que le reste du site via AnimatedBackground (fond #111111 + motif
+// « $ ? » qui ne s'arrête donc pas net à la frontière). Le motif y est volontairement
+// quasi invisible (symbolOpacity très bas) pour garder les liens parfaitement
+// lisibles, et la séparation se réduit à un fin dégradé qui se fond aux bords.
 
 const syne = Syne({ subsets: ['latin'], weight: ['800'], display: 'swap' })
 
@@ -41,11 +48,19 @@ export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer
-      className="relative z-10 mt-auto border-t border-white/[0.06]"
-      style={{ backgroundColor: '#0c0c0f' }}
-    >
-      <div className="mx-auto max-w-5xl px-6 py-10">
+    <footer className="relative z-10 mt-auto">
+      {/* Même surface que le site (fond #111111 + motif « $ ? » continué, mais
+          quasi invisible à 0.02 pour ne jamais gêner la lecture des liens). */}
+      <AnimatedBackground symbolOpacity={0.02}>
+        {/* Séparation très discrète : un fin dégradé qui s'éteint sur les bords,
+            au lieu d'une ligne ou d'une cassure de couleur franche. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px"
+          style={{ background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)' }}
+        />
+
+        <div className="mx-auto max-w-5xl px-6 py-10">
         <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
           {/* Marque + tagline courte */}
           <div className="flex flex-col gap-2 md:max-w-[15rem]">
@@ -98,7 +113,8 @@ export default function Footer() {
             Données films via l&apos;API TMDB. Produit non approuvé ni certifié par TMDB.
           </span>
         </div>
-      </div>
+        </div>
+      </AnimatedBackground>
     </footer>
   )
 }
