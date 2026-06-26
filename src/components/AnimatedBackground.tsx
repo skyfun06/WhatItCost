@@ -25,26 +25,16 @@ const symbolStyle: CSSProperties = {
   lineHeight: 1,
 }
 
-interface Props {
-  children: ReactNode
-  className?: string
-  style?: CSSProperties
-  /** Opacity of the $ / ? symbols (default 0.06). Raise it for more contrast. */
-  symbolOpacity?: number
-}
-
-export default function AnimatedBackground({
-  children,
-  className = '',
-  style,
-  symbolOpacity = 0.06,
-}: Props) {
+/**
+ * Couche de motif « $ ? » seule (keyframes + bandes diagonales), positionnée en
+ * `absolute inset-0` : elle remplit son parent positionné. Extraite pour pouvoir
+ * être réutilisée à l'identique par le fond GLOBAL du site (cf. layout.tsx), de
+ * sorte qu'on n'a qu'UN seul système de motif, jamais dupliqué côté footer.
+ */
+export function MotifStripes({ symbolOpacity = 0.06 }: { symbolOpacity?: number }) {
   const symbol: CSSProperties = { ...symbolStyle, opacity: symbolOpacity }
   return (
-    <div
-      className={`relative overflow-hidden ${className}`}
-      style={{ backgroundColor: '#111111', ...style }}
-    >
+    <>
       <style>{`
         /* Travel = one copy (50% of the doubled track) → seamless. */
         @keyframes wicSlideRight {
@@ -94,6 +84,30 @@ export default function AnimatedBackground({
           )
         })}
       </div>
+    </>
+  )
+}
+
+interface Props {
+  children: ReactNode
+  className?: string
+  style?: CSSProperties
+  /** Opacity of the $ / ? symbols (default 0.06). Raise it for more contrast. */
+  symbolOpacity?: number
+}
+
+export default function AnimatedBackground({
+  children,
+  className = '',
+  style,
+  symbolOpacity = 0.06,
+}: Props) {
+  return (
+    <div
+      className={`relative overflow-hidden ${className}`}
+      style={{ backgroundColor: '#111111', ...style }}
+    >
+      <MotifStripes symbolOpacity={symbolOpacity} />
 
       {/* Content sits above the animation */}
       <div className="relative w-full" style={{ zIndex: 1 }}>

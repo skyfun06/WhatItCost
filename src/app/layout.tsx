@@ -5,6 +5,7 @@ import { LocaleProvider } from '@/contexts/LocaleContext'
 import LanguageToggle from '@/components/LanguageToggle'
 import CoffeeBanner from '@/components/CoffeeBanner'
 import Footer from '@/components/layout/Footer'
+import { MotifStripes } from '@/components/AnimatedBackground'
 import './globals.css'
 
 // next/font charge la police en build time, sans requête client vers Google Fonts
@@ -54,6 +55,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* L'og:image est émis par Next depuis `metadata.openGraph.images` (défaut ci-dessus,
           ou personnalisé par le generateMetadata de la home pour un lien porteur de score). */}
       <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden flex flex-col">
+        {/*
+          Fond GLOBAL unique : couche fixe couvrant tout le viewport (#111111 + motif
+          « $ ? »), derrière tout le contenu (-z-10). C'est LE seul motif du footer :
+          les pages posent leur propre fond opaque par-dessus (le motif global y est
+          donc masqué, pas dupliqué), et le footer — transparent — laisse simplement
+          transparaître cette couche, d'où une surface continue sur toute la page,
+          footer compris. Opacité volontairement basse pour la lisibilité des liens.
+        */}
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
+          style={{ backgroundColor: '#111111' }}
+        >
+          <MotifStripes symbolOpacity={0.04} />
+        </div>
+
         {/*
           LocaleProvider est un Client Component qui wrap toute l'app.
           Cela permet d'utiliser useTranslation() dans n'importe quel composant client
