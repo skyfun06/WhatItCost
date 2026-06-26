@@ -151,3 +151,16 @@ export function getPosterUrl(
   if (!path) return '/images/poster-placeholder.jpg'
   return `${IMAGE_BASE}/${size}${path}`
 }
+
+/**
+ * Construit l'URL d'un backdrop TMDB (visuel large 16:9), ou null si absent.
+ * Renvoie null (et non un placeholder) pour que l'appelant retombe proprement
+ * sur le dégradé corail des couvertures de blog plutôt que sur une image cassée.
+ */
+export function getBackdropUrl(
+  path: string | null,
+  size: 'w300' | 'w780' | 'w1280' | 'original' = 'w1280',
+): string | null {
+  if (!path) return null
+  return `${IMAGE_BASE}/${size}${path}`
+}

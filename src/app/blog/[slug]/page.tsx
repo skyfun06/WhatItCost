@@ -5,6 +5,7 @@ import { Syne } from 'next/font/google'
 import AnimatedBackground from '@/components/AnimatedBackground'
 import Prose from '@/components/editorial/Prose'
 import { getAllSlugs, getPostBySlug, formatDate } from '@/lib/blog'
+import { resolveCover } from '@/lib/blogCover'
 import { SITE_URL } from '@/lib/share'
 
 const syne = Syne({ subsets: ['latin'], weight: ['800'], display: 'swap' })
@@ -18,12 +19,13 @@ export function generateStaticParams() {
   return getAllSlugs().map((slug) => ({ slug }))
 }
 
-export function generateMetadata({ params }: Params): Metadata {
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const post = getPostBySlug(params.slug)
   if (!post) return { title: 'Article introuvable' }
 
   const url = `${SITE_URL}/blog/${post.slug}`
-  const image = post.cover ?? `${SITE_URL}/api/og`
+  const cover = await resolveCover(post)
+  const image = cover?.url ?? `${SITE_URL}/api/og`
 
   return {
     title: post.title,
@@ -46,11 +48,12 @@ export function generateMetadata({ params }: Params): Metadata {
   }
 }
 
-export default function BlogPostPage({ params }: Params) {
+export default async function BlogPostPage({ params }: Params) {
   const post = getPostBySlug(params.slug)
   if (!post) notFound()
 
   const url = `${SITE_URL}/blog/${post.slug}`
+  const cover = await resolveCover(post)
 
   // JSON-LD BlogPosting — aide les moteurs à comprendre l'article (rich results).
   const jsonLd = {
@@ -60,7 +63,7 @@ export default function BlogPostPage({ params }: Params) {
     description: post.excerpt,
     datePublished: post.date,
     mainEntityOfPage: url,
-    ...(post.cover ? { image: post.cover } : {}),
+    ...(cover ? { image: cover.url } : {}),
     author: { '@type': 'Organization', name: 'WhatItCost' },
     publisher: { '@type': 'Organization', name: 'WhatItCost' },
   }
@@ -93,18 +96,31 @@ export default function BlogPostPage({ params }: Params) {
           </div>
         </header>
 
-        {post.cover && (
+        {cover && (
           <figure className="mb-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={post.cover}
-              alt={post.title}
-              className="w-full"
-              style={{ borderRadius: '14px', aspectRatio: '16 / 9', objectFit: 'cover' }}
-            />
-            {post.coverCredit && (
+            <div
+              className="relative w-full overflow-hidden"
+              style={{
+                borderRadius: '14px',
+                aspectRatio: '16 / 9',
+                background: 'linear-gradient(120deg, #ff5c3a 0%, #ff8c42 55%, #ffd166 100%)',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={cover.url}
+                alt={post.title}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              {/* Léger voile sombre : lisibilité d'un texte blanc superposé + intégration au fond */}
+              <div
+                className="absolute inset-0"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0.05) 60%)' }}
+              />
+            </div>
+            {cover.credit && (
               <figcaption className="mt-2 text-xs" style={{ color: '#555566' }}>
-                {post.coverCredit}
+                {cover.credit}
               </figcaption>
             )}
           </figure>

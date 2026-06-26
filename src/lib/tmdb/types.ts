@@ -6,6 +6,7 @@ export interface TMDBMovie {
   release_date: string   // "YYYY-MM-DD"
   budget: number         // 0 si non renseigné dans TMDB
   poster_path: string | null
+  backdrop_path: string | null // visuel large 16:9 (couvertures du blog)
   overview: string
   genres: TMDBGenre[]
   credits?: {

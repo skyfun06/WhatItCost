@@ -2,6 +2,7 @@
 title: "Les films à petit budget qui ont rapporté des fortunes"
 date: "2026-06-18"
 excerpt: "15 000 dollars de budget, près de 200 millions de recettes : ces films minuscules ont réalisé les meilleurs retours sur investissement de l'histoire du cinéma."
+coverMovieId: 419430
 tags: ["budgets", "box-office", "indépendant"]
 ---
 

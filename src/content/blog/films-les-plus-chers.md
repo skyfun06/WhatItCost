@@ -2,6 +2,7 @@
 title: "Les 10 films les plus chers de l'histoire du cinéma"
 date: "2026-06-26"
 excerpt: "Plus de 400 millions de dollars pour un seul film : voici les productions les plus coûteuses jamais tournées, et pourquoi elles ont fait exploser les compteurs."
+coverMovieId: 299534
 tags: ["budgets", "blockbusters", "classement"]
 ---
 

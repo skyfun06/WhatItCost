@@ -2,6 +2,7 @@
 title: "Pourquoi les films de super-héros coûtent-ils si cher ?"
 date: "2026-06-24"
 excerpt: "Effets visuels par milliers, cachets à neuf chiffres, marketing planétaire : décomposition des raisons qui font d'un film de super-héros l'un des produits les plus coûteux du divertissement."
+coverMovieId: 1726
 tags: ["budgets", "super-héros", "VFX", "coulisses"]
 ---
 

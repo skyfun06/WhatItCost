@@ -2,6 +2,7 @@
 title: "Comment un film fixe-t-il son budget ?"
 date: "2026-06-20"
 excerpt: "Casting, tournage, effets visuels, marketing : voyage à l'intérieur d'un budget de film, poste par poste, pour comprendre où part vraiment l'argent."
+coverMovieId: 19995
 tags: ["budgets", "production", "coulisses"]
 ---
 

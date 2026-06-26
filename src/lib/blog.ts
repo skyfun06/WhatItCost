@@ -15,8 +15,10 @@ export interface PostMeta {
   date: string
   /** Résumé court affiché sur les cartes et en meta description. */
   excerpt: string
-  /** URL d'image de couverture (ex. backdrop TMDB) — optionnelle. */
+  /** URL d'image de couverture explicite — prioritaire sur coverMovieId. */
   cover?: string
+  /** ID TMDB d'un film de l'article : sa couverture utilise le backdrop de ce film. */
+  coverMovieId?: number
   /** Crédit/source de l'image de couverture — optionnel. */
   coverCredit?: string
   tags?: string[]
@@ -59,6 +61,9 @@ function parseFile(slug: string): Post | null {
     date: String(data.date),
     excerpt: String(data.excerpt ?? ''),
     cover: data.cover ? String(data.cover) : undefined,
+    coverMovieId: Number.isFinite(Number(data.coverMovieId)) && data.coverMovieId
+      ? Number(data.coverMovieId)
+      : undefined,
     coverCredit: data.coverCredit ? String(data.coverCredit) : undefined,
     tags: Array.isArray(data.tags) ? data.tags.map(String) : undefined,
     readingTime: readingTimeOf(content),

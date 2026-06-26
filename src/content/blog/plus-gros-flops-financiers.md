@@ -2,6 +2,7 @@
 title: "Budget vs box-office : les plus gros flops financiers du cinéma"
 date: "2026-06-22"
 excerpt: "Des centaines de millions engloutis pour des recettes décevantes : retour sur les naufrages financiers les plus retentissants d'Hollywood, chiffres à l'appui."
+coverMovieId: 49529
 tags: ["budgets", "box-office", "flops"]
 ---
 

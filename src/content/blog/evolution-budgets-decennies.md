@@ -2,6 +2,7 @@
 title: "L'évolution des budgets de films à travers les décennies"
 date: "2026-06-16"
 excerpt: "De Autant en emporte le vent à Avatar, comment les budgets de cinéma ont franchi le million, puis le milliard symbolique. Un voyage chiffré dans un siècle de production."
+coverMovieId: 597
 tags: ["budgets", "histoire", "cinéma"]
 ---
 

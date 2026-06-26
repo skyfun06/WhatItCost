@@ -1,23 +1,40 @@
 import Link from 'next/link'
+import { Syne } from 'next/font/google'
 
 // Footer global, monté dans le layout racine — visible sur tout le site.
 // Server component statique (FR) : aucun hook, contenu indexable partout, ce qui
 // donne aux pages éditoriales/légales des liens internes crawlables (bon signal
-// pour l'indexation et pour AdSense). Il s'affiche sous le contenu plein écran du
-// jeu, sans en altérer la mise en page.
+// pour l'indexation et pour AdSense). Compact et aéré : il s'affiche sous le
+// contenu plein écran du jeu sans en altérer la mise en page. La bannière café
+// réserve déjà 60px en bas du <body>, donc pas de padding bas supplémentaire ici.
 
-const NAV: Array<{ href: string; label: string }> = [
-  { href: '/', label: 'Accueil' },
-  { href: '/blog', label: 'Blog' },
-  { href: '/comment-jouer', label: 'Comment jouer' },
-  { href: '/a-propos', label: 'À propos' },
-  { href: '/contact', label: 'Contact' },
-  { href: '/leaderboard', label: 'Classement' },
-]
+const syne = Syne({ subsets: ['latin'], weight: ['800'], display: 'swap' })
 
-const LEGAL: Array<{ href: string; label: string }> = [
-  { href: '/mentions-legales', label: 'Mentions légales' },
-  { href: '/confidentialite', label: 'Confidentialité' },
+const COLUMNS: Array<{ heading: string; links: Array<{ href: string; label: string }> }> = [
+  {
+    heading: 'Explorer',
+    links: [
+      { href: '/', label: 'Accueil' },
+      { href: '/blog', label: 'Blog' },
+      { href: '/comment-jouer', label: 'Comment jouer' },
+      { href: '/a-propos', label: 'À propos' },
+    ],
+  },
+  {
+    heading: 'Le jeu',
+    links: [
+      { href: '/daily', label: 'Défi du jour' },
+      { href: '/leaderboard', label: 'Classement' },
+      { href: '/contact', label: 'Contact' },
+    ],
+  },
+  {
+    heading: 'Légal',
+    links: [
+      { href: '/mentions-legales', label: 'Mentions légales' },
+      { href: '/confidentialite', label: 'Confidentialité' },
+    ],
+  },
 ]
 
 export default function Footer() {
@@ -25,71 +42,61 @@ export default function Footer() {
 
   return (
     <footer
-      className="relative z-10 border-t border-white/5 mt-auto"
-      style={{ backgroundColor: '#0c0c0c' }}
+      className="relative z-10 mt-auto border-t border-white/[0.06]"
+      style={{ backgroundColor: '#0c0c0f' }}
     >
-      {/* Padding bas généreux : la bannière café (fixée, masquable) ne recouvre pas
-          les liens sur les pages courtes. */}
-      <div className="max-w-4xl mx-auto px-6 pt-12 pb-28 sm:pb-16">
-        <div className="flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
-          {/* Marque + intention */}
-          <div className="flex flex-col gap-2 max-w-xs">
-            <span className="font-bold text-lg tracking-tight text-white">
+      <div className="mx-auto max-w-5xl px-6 py-10">
+        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+          {/* Marque + tagline courte */}
+          <div className="flex flex-col gap-2 md:max-w-[15rem]">
+            <span className={`${syne.className} text-xl text-white`}>
               WhatItCost<span style={{ color: '#FF4D2E' }}>?</span>
             </span>
-            <p className="text-sm leading-relaxed" style={{ color: '#888899' }}>
-              Le jeu qui teste ton flair pour les budgets de cinéma. Devine combien
-              a coûté chaque film, seul, entre amis ou dans le défi du jour.
+            <p className="text-sm leading-relaxed" style={{ color: '#7c7c8a' }}>
+              Devine le budget des films. Seul, entre amis ou dans le défi du jour.
             </p>
           </div>
 
-          {/* Navigation */}
-          <nav aria-label="Navigation du pied de page" className="flex flex-col gap-3">
-            <span className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#555566' }}>
-              Explorer
-            </span>
-            <ul className="flex flex-col gap-2">
-              {NAV.map(({ href, label }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="text-sm transition-colors hover:text-white"
-                    style={{ color: '#aaaab5' }}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Légal */}
-          <nav aria-label="Informations légales" className="flex flex-col gap-3">
-            <span className="text-xs font-bold uppercase tracking-[0.18em]" style={{ color: '#555566' }}>
-              Légal
-            </span>
-            <ul className="flex flex-col gap-2">
-              {LEGAL.map(({ href, label }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="text-sm transition-colors hover:text-white"
-                    style={{ color: '#aaaab5' }}
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          {/* Colonnes de liens — côte à côte même sur mobile (3 colonnes compactes) */}
+          <nav
+            aria-label="Pied de page"
+            className="grid grid-cols-3 gap-x-8 gap-y-8 sm:gap-x-14"
+          >
+            {COLUMNS.map((col) => (
+              <div key={col.heading} className="flex flex-col gap-3">
+                <span
+                  className={`${syne.className} text-xs uppercase tracking-[0.16em]`}
+                  style={{ color: '#5a5a6a' }}
+                >
+                  {col.heading}
+                </span>
+                <ul className="flex flex-col gap-2.5">
+                  {col.links.map(({ href, label }) => (
+                    <li key={href}>
+                      <Link
+                        href={href}
+                        className="text-sm transition-colors duration-150 hover:text-[#FF4D2E]"
+                        style={{ color: '#9a9aa8' }}
+                      >
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </nav>
         </div>
 
+        {/* Barre basse : copyright + mention TMDB, séparés par une fine ligne */}
         <div
-          className="mt-10 pt-6 border-t border-white/5 text-xs"
-          style={{ color: '#555566' }}
+          className="mt-9 flex flex-col gap-2 border-t border-white/[0.05] pt-5 text-xs sm:flex-row sm:items-center sm:justify-between"
+          style={{ color: '#55555f' }}
         >
-          © {year} WhatItCost — Projet indépendant. Les données de films proviennent de
-          l'API TMDB. Ce produit n'est ni approuvé ni certifié par TMDB.
+          <span>© {year} WhatItCost — Projet indépendant.</span>
+          <span>
+            Données films via l&apos;API TMDB. Produit non approuvé ni certifié par TMDB.
+          </span>
         </div>
       </div>
     </footer>
