@@ -4,6 +4,7 @@ import { Space_Grotesk } from 'next/font/google'
 import { LocaleProvider } from '@/contexts/LocaleContext'
 import LanguageToggle from '@/components/LanguageToggle'
 import CoffeeBanner from '@/components/CoffeeBanner'
+import Footer from '@/components/layout/Footer'
 import './globals.css'
 
 // next/font charge la police en build time, sans requête client vers Google Fonts
@@ -52,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={spaceGrotesk.variable}>
       {/* L'og:image est émis par Next depuis `metadata.openGraph.images` (défaut ci-dessus,
           ou personnalisé par le generateMetadata de la home pour un lien porteur de score). */}
-      <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden">
+      <body className="bg-bg text-white font-sans antialiased min-h-screen overflow-x-hidden flex flex-col">
         {/*
           LocaleProvider est un Client Component qui wrap toute l'app.
           Cela permet d'utiliser useTranslation() dans n'importe quel composant client
@@ -74,6 +75,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LanguageToggle />
 
           {children}
+
+          {/* Footer global — liens éditoriaux + légaux, crawlables sur tout le site.
+              mt-auto le colle en bas via le body flex-col. Section additive : il
+              s'affiche sous le contenu plein écran du jeu sans en changer la mise en page. */}
+          <Footer />
 
           {/* Bannière de soutien — fixée en bas, masquable */}
           <CoffeeBanner />
