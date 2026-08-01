@@ -61,14 +61,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           les pages posent leur propre fond opaque par-dessus (le motif global y est
           donc masqué, pas dupliqué), et le footer — transparent — laisse simplement
           transparaître cette couche, d'où une surface continue sur toute la page,
-          footer compris. Opacité volontairement basse pour la lisibilité des liens.
+          footer compris. Même opacité (0.06) que le fond des pages/hero, pour que le
+          footer partage EXACTEMENT le même fond qu'elles (pas de couche recréée).
         */}
         <div
           aria-hidden="true"
           className="fixed inset-0 -z-10 overflow-hidden pointer-events-none"
           style={{ backgroundColor: '#111111' }}
         >
-          <MotifStripes symbolOpacity={0.04} />
+          <MotifStripes symbolOpacity={0.06} />
         </div>
 
         {/*
