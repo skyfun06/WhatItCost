@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { Syne } from 'next/font/google'
 import TypewriterTagline from '@/components/TypewriterTagline'
-import AnimatedBackground from '@/components/AnimatedBackground'
 import { useTranslation } from '@/hooks/useTranslation'
 
 const syne = Syne({
@@ -16,10 +15,11 @@ export default function HomeContent() {
   const { t } = useTranslation()
 
   return (
-    <AnimatedBackground
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-8"
-      style={{ backgroundColor: '#111111' }}
-    >
+    // Transparent : laisse voir le fond GLOBAL unique (layout.tsx, #111111 + motif
+    // « $ ? »). Le hero ne recrée plus sa propre animation → il partage exactement
+    // la même couche animée que le footer (transparent lui aussi), d'où une seule
+    // et même animation continue de haut en bas.
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-8">
       <div className="flex flex-col items-center text-center" style={{ gap: '1.25rem' }}>
 
         {/* Pill tag */}
@@ -125,6 +125,6 @@ export default function HomeContent() {
         </Link>
 
       </div>
-    </AnimatedBackground>
+    </div>
   )
 }
