@@ -4,6 +4,7 @@ import { Space_Grotesk } from 'next/font/google'
 import { LocaleProvider } from '@/contexts/LocaleContext'
 import LanguageToggle from '@/components/LanguageToggle'
 import CoffeeBanner from '@/components/CoffeeBanner'
+import MobileDock from '@/components/MobileDock'
 import Footer from '@/components/layout/Footer'
 import { MotifStripes } from '@/components/AnimatedBackground'
 import './globals.css'
@@ -98,6 +99,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               mt-auto le colle en bas via le body flex-col. Section additive : il
               s'affiche sous le contenu plein écran du jeu sans en changer la mise en page. */}
           <Footer />
+
+          {/* Dock de navigation mobile — fixé en bas, mobile uniquement, masqué en jeu */}
+          <MobileDock />
 
           {/* Bannière de soutien — fixée en bas, masquable */}
           <CoffeeBanner />
