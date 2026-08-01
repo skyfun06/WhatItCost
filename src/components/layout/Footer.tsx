@@ -1,18 +1,19 @@
 import Link from 'next/link'
 import { Syne } from 'next/font/google'
-import { MotifStripes } from '@/components/AnimatedBackground'
 
-// Footer global « socle signature », monté dans le layout racine (visible partout).
-// Server component statique (FR) : aucun hook, contenu indexable, liens crawlables.
+// Footer global, monté dans le layout racine — visible sur tout le site.
+// Server component statique (FR) : aucun hook, contenu indexable partout, liens
+// internes crawlables (bon pour l'indexation et AdSense).
 //
-// Intégration visuelle : plutôt que rester totalement transparent, le footer
-// devient la CONCLUSION visuelle de la page. Il prolonge le motif « $ ? » du fond
-// global (même composant MotifStripes, densité croissante vers le bas), fond son
-// arête haute dans le corps via un dégradé (plus de ligne sèche), et ancre la page
-// avec un wordmark géant débordant par le bas. Toutes les couches ajoutées sont
-// décoratives (aria-hidden) et sous le contenu (z-10).
+// Parti pris visuel : sobre et cohérent avec le reste du site. Le footer reste
+// transparent et laisse transparaître le fond global (#111111 + motif « $ ? »),
+// d'où une surface continue sans jointure dupliquée. Seule signature ajoutée :
+// une fine ligne dégradée qui s'éteint sur les bords (pas de trait sec), la police
+// Syne du hero pour la marque et les titres, et l'accent corail #FF4D2E au survol.
 
-const syne = Syne({ subsets: ['latin'], weight: ['800'], display: 'swap' })
+const syne = Syne({ subsets: ['latin'], weight: ['700', '800'], display: 'swap' })
+
+const ACCENT = '#FF4D2E'
 
 const COLUMNS: Array<{ heading: string; links: Array<{ href: string; label: string }> }> = [
   {
@@ -41,104 +42,53 @@ const COLUMNS: Array<{ heading: string; links: Array<{ href: string; label: stri
   },
 ]
 
-const ACCENT = '#FF4D2E'
-
 export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    // overflow-hidden : coupe proprement le motif ET le wordmark qui déborde en bas.
-    <footer className="relative z-10 mt-auto overflow-hidden bg-transparent">
-      {/* 1a. Socle sombre : dégradé transparent → sombre vers le bas. Le haut reste
-             transparent (jointure fondue avec le corps, plus de ligne sèche) ;
-             le bas s'assombrit pour poser une base. */}
+    <footer className="relative z-10 mt-auto bg-transparent">
+      {/* Séparation douce : fine ligne dégradée qui s'éteint aux extrémités. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 100%)' }}
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.10), transparent)' }}
       />
 
-      {/* 1b. Prolongement du motif « $ ? » : MÊME composant que le fond global. Un
-             masque en dégradé le fait apparaître progressivement et plus dense vers
-             le bas → continuité visuelle qui s'intensifie. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          maskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)',
-        }}
-      >
-        <MotifStripes symbolOpacity={0.07} />
-      </div>
-
-      {/* 3. Lueur orange douce derrière le wordmark (faible opacité, pas de néon). */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-64"
-        style={{ background: 'radial-gradient(60% 120% at 50% 100%, rgba(255,77,46,0.10), transparent 70%)' }}
-      />
-
-      {/* 2. Wordmark « socle » : Syne (police du hero), semi-transparent, « ? » orange,
-             débordant sous le bord bas (translateY + overflow-hidden) → effet d'ancrage. */}
-      <span
-        aria-hidden="true"
-        className={`${syne.className} pointer-events-none absolute inset-x-0 bottom-0 select-none whitespace-nowrap text-center uppercase`}
-        style={{
-          fontSize: 'clamp(4rem, 22vw, 15rem)',
-          lineHeight: 0.72,
-          letterSpacing: '-0.03em',
-          color: 'rgba(255,255,255,0.035)',
-          transform: 'translateY(26%)',
-        }}
-      >
-        WHATITCOST<span style={{ color: 'rgba(255,77,46,0.55)' }}>?</span>
-      </span>
-
-      {/* Contenu réel, au-dessus de toutes les couches décoratives. pb généreux :
-          réserve la bande basse au wordmark sans qu'il chevauche le texte lisible. */}
-      <div className="relative z-10 mx-auto max-w-5xl px-6 pt-16 pb-40 md:pb-48">
-        <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
-          {/* Marque + tagline courte */}
-          <div className="flex flex-col gap-2 md:max-w-[15rem]">
-            <span className={`${syne.className} text-xl text-white`}>
+      <div className="mx-auto max-w-6xl px-6 py-14">
+        {/* Haut : marque à gauche, colonnes de liens à droite. */}
+        <div className="flex flex-col gap-12 md:flex-row md:items-start md:justify-between">
+          {/* Marque + tagline */}
+          <div className="flex flex-col gap-3 md:max-w-xs">
+            <Link href="/" className={`${syne.className} text-2xl font-extrabold text-white`}>
               WhatItCost<span style={{ color: ACCENT }}>?</span>
-            </span>
-            <p className="text-sm leading-relaxed" style={{ color: '#7c7c8a' }}>
+            </Link>
+            <p className="text-sm leading-relaxed" style={{ color: '#8a8a97' }}>
               Devine le budget des films. Seul, entre amis ou dans le défi du jour.
             </p>
           </div>
 
-          {/* Colonnes de liens — 3 colonnes compactes, tiennent même sur mobile. */}
-          <nav aria-label="Pied de page" className="grid grid-cols-3 gap-x-8 gap-y-8 sm:gap-x-14">
+          {/* Colonnes de liens */}
+          <nav
+            aria-label="Pied de page"
+            className="grid grid-cols-2 gap-x-10 gap-y-10 sm:grid-cols-3 sm:gap-x-16"
+          >
             {COLUMNS.map((col) => (
-              <div key={col.heading} className="flex flex-col gap-3">
-                {/* Titre de colonne + accent orange (courte barre) devant. */}
-                <span
-                  className={`${syne.className} flex items-center gap-2 text-xs uppercase tracking-[0.16em]`}
-                  style={{ color: '#7a7a88' }}
+              <div key={col.heading} className="flex flex-col gap-4">
+                <h2
+                  className={`${syne.className} text-xs font-bold uppercase tracking-[0.18em]`}
+                  style={{ color: '#6a6a78' }}
                 >
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-3 w-[3px] rounded-full"
-                    style={{ backgroundColor: ACCENT }}
-                  />
                   {col.heading}
-                </span>
-                <ul className="flex flex-col gap-2.5">
+                </h2>
+                <ul className="flex flex-col gap-3">
                   {col.links.map(({ href, label }) => (
                     <li key={href}>
-                      {/* Hover : couleur orange + soulignement qui se déploie. */}
                       <Link
                         href={href}
-                        className="group relative inline-block text-sm transition-colors duration-200 hover:text-[#FF4D2E]"
+                        className="text-sm transition-colors duration-200 hover:text-[#FF4D2E]"
                         style={{ color: '#9a9aa8' }}
                       >
                         {label}
-                        <span
-                          aria-hidden="true"
-                          className="absolute -bottom-0.5 left-0 h-px w-0 bg-[#FF4D2E] transition-all duration-200 group-hover:w-full"
-                        />
                       </Link>
                     </li>
                   ))}
@@ -148,10 +98,10 @@ export default function Footer() {
           </nav>
         </div>
 
-        {/* Barre basse : copyright + mention TMDB. */}
+        {/* Bas : copyright + mention TMDB, séparés par une fine ligne. */}
         <div
-          className="mt-9 flex flex-col gap-2 border-t border-white/[0.05] pt-5 text-xs sm:flex-row sm:items-center sm:justify-between"
-          style={{ color: '#55555f' }}
+          className="mt-12 flex flex-col gap-2 border-t border-white/[0.06] pt-6 text-xs sm:flex-row sm:items-center sm:justify-between"
+          style={{ color: '#5c5c66' }}
         >
           <span>© {year} WhatItCost — Projet indépendant.</span>
           <span>
