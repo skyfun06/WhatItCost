@@ -1,15 +1,17 @@
 import Link from 'next/link'
 import { Syne } from 'next/font/google'
+import { MotifStripes } from '@/components/AnimatedBackground'
 
 // Footer global, monté dans le layout racine — visible sur tout le site.
 // Server component statique (FR) : aucun hook, contenu indexable partout, liens
 // internes crawlables (bon pour l'indexation et AdSense).
 //
-// Parti pris visuel : sobre et cohérent avec le reste du site. Le footer reste
-// transparent et laisse transparaître le fond global (#111111 + motif « $ ? »),
-// d'où une surface continue sans jointure dupliquée. Seule signature ajoutée :
-// une fine ligne dégradée qui s'éteint sur les bords (pas de trait sec), la police
-// Syne du hero pour la marque et les titres, et l'accent corail #FF4D2E au survol.
+// Parti pris visuel : sobre et cohérent avec le reste du site. Le footer porte
+// EXACTEMENT le même fond que les pages (fond opaque #111111 + motif « $ ? » via
+// MotifStripes à l'opacité par défaut 0.06, cf. AnimatedBackground), au lieu de
+// laisser transparaître la couche globale (motif 0.04) — surface homogène de bout
+// en bout. Police Syne du hero pour la marque et les titres, accent corail
+// #FF4D2E au survol, et une fine ligne dégradée en haut comme séparation douce.
 
 const syne = Syne({ subsets: ['latin'], weight: ['700', '800'], display: 'swap' })
 
@@ -46,15 +48,21 @@ export default function Footer() {
   const year = new Date().getFullYear()
 
   return (
-    <footer className="relative z-10 mt-auto bg-transparent">
+    <footer
+      className="relative z-10 mt-auto overflow-hidden"
+      style={{ backgroundColor: '#111111' }}
+    >
+      {/* Même motif « $ ? » que les pages (AnimatedBackground), même opacité. */}
+      <MotifStripes symbolOpacity={0.06} />
+
       {/* Séparation douce : fine ligne dégradée qui s'éteint aux extrémités. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        className="pointer-events-none absolute inset-x-0 top-0 z-10 h-px"
         style={{ background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.10), transparent)' }}
       />
 
-      <div className="mx-auto max-w-6xl px-6 py-14">
+      <div className="relative z-10 mx-auto max-w-6xl px-6 py-14">
         {/* Haut : marque à gauche, colonnes de liens à droite. */}
         <div className="flex flex-col gap-12 md:flex-row md:items-start md:justify-between">
           {/* Marque + tagline */}
