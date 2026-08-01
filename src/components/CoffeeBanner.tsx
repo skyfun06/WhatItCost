@@ -29,10 +29,19 @@ export default function CoffeeBanner() {
     setVisible(!dismissed)
   }, [])
 
-  // Réserve la place de la bannière en bas du contenu tant qu'elle est affichée
+  // Réserve la place de la bannière FIXE en bas du contenu — UNIQUEMENT en desktop.
+  // Sur mobile la bannière n'est plus fixe (elle passe dans le flux, juste au-dessus
+  // du footer, pour laisser le dock être le seul élément fixe en bas) : aucune
+  // réservation de padding nécessaire dans ce cas.
   useEffect(() => {
-    document.body.style.paddingBottom = visible ? '60px' : ''
+    const mq = window.matchMedia('(min-width: 768px)')
+    const apply = () => {
+      document.body.style.paddingBottom = visible && mq.matches ? '60px' : ''
+    }
+    apply()
+    mq.addEventListener('change', apply)
     return () => {
+      mq.removeEventListener('change', apply)
       document.body.style.paddingBottom = ''
     }
   }, [visible])
@@ -51,7 +60,7 @@ export default function CoffeeBanner() {
 
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
+      className="md:fixed md:bottom-0 md:inset-x-0 md:z-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
       style={{
         backgroundColor: '#1a1a1a',
         borderTop: '1px solid #222222',

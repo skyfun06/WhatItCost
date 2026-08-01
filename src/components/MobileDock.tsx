@@ -3,14 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Home, Trophy, SlidersHorizontal, User, type LucideIcon } from 'lucide-react'
+import { Home, Trophy, SlidersHorizontal, type LucideIcon } from 'lucide-react'
 import { useTranslation } from '@/hooks/useTranslation'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dock de navigation MOBILE UNIQUEMENT (masqué en `md:` et au-dessus — le desktop
-// garde sa nav actuelle : logo + footer). Barre sombre arrondie fixée en bas, 4
-// onglets, et une bille orange lumineuse qui glisse jusqu'à l'onglet actif en se
-// logeant dans un creux de la barre (effet « ménisque » via filtre SVG goo).
+// garde sa nav actuelle : logo + footer). Barre sombre arrondie fixée en bas, 3
+// onglets répartis à parts égales, et une bille orange lumineuse qui glisse jusqu'à
+// l'onglet actif en se logeant dans un creux de la barre (ménisque via filtre SVG goo).
 //
 // Repli propre : si prefers-reduced-motion est actif (ou le goo non voulu), la
 // bille reste simplement posée sur la barre — pas de fusion liquide, pas de
@@ -28,6 +28,9 @@ const CRADLE = 54
 const BALL_CENTER_Y = 20 // centre vertical de la bille (au-dessus du bord de barre)
 const CRADLE_CENTER_Y = 26 // le cercle sombre du creux, un peu plus bas → bulle vers la bille
 const SLIDE = 'transform 0.45s cubic-bezier(0.34, 1.4, 0.5, 1)' // glisse doux + léger rebond
+// Espace réservé en bas de page (mobile) pour que le contenu/footer ne passe pas
+// sous le dock fixe : hauteur du conteneur + sa marge basse (+ safe-area en CSS).
+const DOCK_RESERVE = CONTAINER_H + 12
 
 type Tab = { href: string; icon: LucideIcon; label: { fr: string; en: string } }
 
@@ -35,11 +38,10 @@ const TABS: Tab[] = [
   { href: '/', icon: Home, label: { fr: 'Accueil', en: 'Home' } },
   { href: '/leaderboard', icon: Trophy, label: { fr: 'Classement', en: 'Leaderboard' } },
   { href: '/settings', icon: SlidersHorizontal, label: { fr: 'Paramètres', en: 'Settings' } },
-  // TODO(compte): aucune page « Compte » n'existe encore (pas d'auth/profil dans le
-  // projet). Route provisoire /compte À CRÉER — le tap y renverra un 404 tant qu'elle
-  // n'existe pas. Repointer vers la vraie page dès qu'elle est en place.
-  { href: '/compte', icon: User, label: { fr: 'Compte', en: 'Account' } },
 ]
+
+// Largeur d'un slot (une part égale de la barre) — pilote la bille, le creux et les onglets.
+const SLOT_PCT = 100 / TABS.length
 
 // Le dock est masqué pendant une partie / dans le flux de jeu.
 const HIDDEN_PREFIXES = ['/game', '/daily', '/lobby', '/join', '/results']
@@ -70,11 +72,12 @@ export default function MobileDock() {
   const ActiveIcon = activeIndex >= 0 ? TABS[activeIndex].icon : null
 
   return (
-    <nav
-      aria-label="Navigation mobile"
-      className="md:hidden fixed inset-x-0 bottom-0 z-50 flex justify-center pointer-events-none"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-    >
+    <>
+      <nav
+        aria-label="Navigation mobile"
+        className="md:hidden fixed inset-x-0 bottom-0 z-50 flex justify-center pointer-events-none"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
       {/* Filtre goo (flou + seuil alpha) : fusionne la barre et le cercle du creux
           en une seule surface → le bord de la barre se courbe pour épouser la bille. */}
       <svg aria-hidden="true" width="0" height="0" style={{ position: 'absolute' }}>
@@ -113,7 +116,7 @@ export default function MobileDock() {
           {liquid && activeIndex >= 0 && (
             <div
               className="absolute left-0 top-0 h-full"
-              style={{ width: '25%', transform: `translateX(${activeIndex * 100}%)`, transition: SLIDE }}
+              style={{ width: `${SLOT_PCT}%`, transform: `translateX(${activeIndex * 100}%)`, transition: SLIDE }}
             >
               <div
                 className="absolute"
@@ -138,7 +141,7 @@ export default function MobileDock() {
             <div
               className="absolute left-0 top-0 h-full"
               style={{
-                width: '25%',
+                width: `${SLOT_PCT}%`,
                 transform: `translateX(${activeIndex * 100}%)`,
                 transition: liquid ? SLIDE : 'none',
               }}
@@ -192,6 +195,16 @@ export default function MobileDock() {
           </ul>
         </div>
       </div>
-    </nav>
+      </nav>
+
+      {/* Cale-pied : réserve la hauteur du dock en bas de page (mobile + pages où le
+          dock est visible, puisque ce composant renvoie null sinon). Évite que le
+          footer et les derniers éléments passent sous le dock fixe. */}
+      <div
+        aria-hidden="true"
+        className="md:hidden"
+        style={{ height: `calc(${DOCK_RESERVE}px + env(safe-area-inset-bottom))` }}
+      />
+    </>
   )
 }

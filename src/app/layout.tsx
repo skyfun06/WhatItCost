@@ -95,16 +95,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {children}
 
+          {/* Bannière de soutien — fixée en bas en DESKTOP, dans le flux (au-dessus
+              du footer) en MOBILE pour laisser le dock être le seul élément fixe. */}
+          <CoffeeBanner />
+
           {/* Footer global — liens éditoriaux + légaux, crawlables sur tout le site.
               mt-auto le colle en bas via le body flex-col. Section additive : il
               s'affiche sous le contenu plein écran du jeu sans en changer la mise en page. */}
           <Footer />
 
-          {/* Dock de navigation mobile — fixé en bas, mobile uniquement, masqué en jeu */}
+          {/* Dock de navigation mobile — fixé en bas, mobile uniquement, masqué en jeu.
+              Rend aussi un cale-pied qui réserve sa hauteur en bas de page (mobile). */}
           <MobileDock />
-
-          {/* Bannière de soutien — fixée en bas, masquable */}
-          <CoffeeBanner />
         </LocaleProvider>
       </body>
     </html>
