@@ -2,22 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scrollbar personnalisée — cohérente avec la palette */
+/* ───────────────────────────────────────────────────────────────────────────
+   TOKENS DE DESIGN — source unique de vérité (référencés aussi dans
+   tailwind.config.ts pour être utilisables en classes ET en inline via var()).
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    /* Couleur d'accent unique — LA « goutte » orange du langage liquide. */
+    --accent: #FF4D2E;
+    --accent-glow: rgba(255, 77, 46, 0.55);
+
+    /* Rayons organiques (généreux). */
+    --r-sm: 10px;
+    --r-md: 16px;
+    --r-lg: 24px;
+    --r-pill: 999px;
+
+    /* Durées. */
+    --dur-fast: 150ms;
+    --dur-base: 260ms;
+    --dur-slow: 450ms;
+
+    /* Courbes. --ease-liquid : pose douce à léger rebond (entrées/états).
+       --ease-snappy : rapide et net (micro-interactions / press). */
+    --ease-liquid: cubic-bezier(0.34, 1.2, 0.5, 1);
+    --ease-snappy: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    /* Immersion mobile : pas de flash gris au tap, pas de rebond élastique qui
+       « décolle » la page (le scroll normal reste intact). */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Scrollbar personnalisée — accent unique */
 ::-webkit-scrollbar        { width: 6px; }
 ::-webkit-scrollbar-track  { background: #16161e; }
-::-webkit-scrollbar-thumb  { background: #ff5c3a; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #ff8c42; }
+::-webkit-scrollbar-thumb  { background: var(--accent); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); opacity: 0.85; }
 
 /* Sélection de texte */
-::selection { background-color: #ff5c3a33; color: #fff; }
-
-@layer base {
-  html { scroll-behavior: smooth; }
-}
+::selection { background-color: rgba(255, 77, 46, 0.22); color: #fff; }
 
 @layer utilities {
   /* Classe utilitaire pour le dégradé de texte signature */
   .text-brand {
     @apply bg-brand-gradient bg-clip-text text-transparent;
+  }
+
+  /* Plein écran fiable sur mobile : dvh (barre d'URL dynamique) avec repli vh.
+     Redéfinit les utilitaires Tailwind → toutes les mises en page plein écran
+     en profitent sans édition fichier par fichier. Desktop : dvh == vh. */
+  .min-h-screen { min-height: 100vh; min-height: 100dvh; }
+  .h-screen     { height: 100vh; height: 100dvh; }
+
+  /* Primitive liquide « press » : compression au toucher + retour rebond.
+     À appliquer aux boutons/liens clés. */
+  .press {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    /* Longhand (pas le raccourci `transition`) pour ne pas écraser d'éventuels
+       utilitaires transition-* de Tailwind sur le même élément. */
+    transition-property: transform;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-liquid); /* retour rebond */
+    will-change: transform;
+  }
+  .press:active {
+    transform: scale(0.96);
+    transition-timing-function: var(--ease-snappy); /* enfoncement net */
+  }
+}
+
+/* Focus clavier soigné et visible (keyboard-only). :where() = spécificité nulle,
+   les composants peuvent surcharger. Anneau à l'accent, avec offset. */
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* prefers-reduced-motion : neutralise CIBLÉ le mouvement liquide (press, scroll
+   fluide, apparitions marquées .liquid-in). Pas de reset global des transitions. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .press,
+  .press:active {
+    transition: none;
+    transform: none;
+  }
+  .liquid-in {
+    animation: none !important;
   }
 }

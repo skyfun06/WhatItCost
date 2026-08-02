@@ -20,7 +20,7 @@ export default async function BlogCard({ post }: { post: PostMeta }) {
       style={{
         backgroundColor: '#16161e',
         border: '1px solid #222230',
-        borderRadius: '14px',
+        borderRadius: 'var(--r-md)',
       }}
     >
       {/* Couverture */}
@@ -28,7 +28,7 @@ export default async function BlogCard({ post }: { post: PostMeta }) {
         className="relative w-full overflow-hidden"
         style={{
           aspectRatio: '16 / 9',
-          background: 'linear-gradient(120deg, #ff5c3a 0%, #ff8c42 55%, #ffd166 100%)',
+          background: 'linear-gradient(120deg, var(--accent) 0%, #ffd166 100%)',
         }}
       >
         {cover && (

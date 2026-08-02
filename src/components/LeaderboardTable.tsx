@@ -56,7 +56,7 @@ export default function LeaderboardTable() {
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className={`${syne.className} text-white uppercase`} style={{ fontSize: 'clamp(2rem, 8vw, 3rem)', lineHeight: 1 }}>
           {t.leaderboard.title}
-          <span style={{ color: '#FF4D2E' }}>.</span>
+          <span style={{ color: 'var(--accent)' }}>.</span>
         </h1>
         <p className="text-sm" style={{ color: '#888888' }}>{t.leaderboard.subtitle}</p>
       </div>
@@ -84,7 +84,7 @@ export default function LeaderboardTable() {
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="animate-pulse rounded-xl"
+              className="animate-pulse rounded-o-md"
               style={{
                 height: '52px',
                 backgroundColor: 'rgba(255,255,255,0.05)',
@@ -113,7 +113,7 @@ export default function LeaderboardTable() {
             return (
               <div
                 key={entry.id}
-                className="flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+                className="flex items-center justify-between gap-3 rounded-o-md px-4 py-3"
                 style={{
                   backgroundColor: isMe ? 'rgba(255,77,46,0.10)' : 'rgba(0,0,0,0.35)',
                   border: isMe ? '1px solid #FF4D2E' : '1px solid rgba(255,255,255,0.12)',
@@ -129,11 +129,11 @@ export default function LeaderboardTable() {
                   <span className={`truncate ${isMe ? 'font-bold' : 'font-medium'} text-white`}>
                     {entry.player_name}
                     {isMe && (
-                      <span className="text-xs ml-1.5" style={{ color: '#FF4D2E' }}>({t.leaderboard.you})</span>
+                      <span className="text-xs ml-1.5" style={{ color: 'var(--accent)' }}>({t.leaderboard.you})</span>
                     )}
                   </span>
                 </div>
-                <span className="font-bold shrink-0" style={{ color: isMe ? '#FF4D2E' : '#ffffff' }}>
+                <span className="font-bold shrink-0" style={{ color: isMe ? 'var(--accent)' : '#ffffff' }}>
                   {scoreLabel(entry.score)}
                 </span>
               </div>

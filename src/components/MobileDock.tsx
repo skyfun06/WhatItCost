@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Home, Trophy, SlidersHorizontal, type LucideIcon } from 'lucide-react'
 import { useTranslation } from '@/hooks/useTranslation'
+import { tapHaptic } from '@/lib/haptics'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dock de navigation MOBILE UNIQUEMENT (masqué en `md:` et au-dessus — le desktop
@@ -175,6 +176,7 @@ export default function MobileDock() {
                     href={tab.href}
                     aria-label={tab.label[locale]}
                     aria-current={active ? 'page' : undefined}
+                    onClick={() => tapHaptic()}
                     className="relative flex h-full w-full flex-col items-center justify-center gap-1 rounded-2xl outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/70"
                   >
                     {active ? (

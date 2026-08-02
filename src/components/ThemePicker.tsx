@@ -82,11 +82,11 @@ export default function ThemePicker({
           textAlign: 'center',
           color: selected ? '#ffffff' : '#888888',
           fontWeight: selected ? 700 : 400,
-          backgroundColor: selected ? '#FF4D2E' : 'transparent',
+          backgroundColor: selected ? 'var(--accent)' : 'transparent',
           cursor: disabled ? 'default' : 'pointer',
-          borderRadius: '6px',
+          borderRadius: 'var(--r-sm)',
           border: 'none',
-          transition: 'all 0.2s ease',
+          transition: 'all var(--dur-base) var(--ease-snappy)',
         }}
       >
         <Icon size={18} strokeWidth={selected ? 2.2 : 1.8} aria-hidden="true" />
@@ -123,7 +123,7 @@ export default function ThemePicker({
         gap: '4px',
         backgroundColor: '#111111',
         border: '1px solid #222222',
-        borderRadius: '8px',
+        borderRadius: 'var(--r-sm)',
         padding: '4px',
         opacity: disabled ? 0.55 : 1,
       }}

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
 import { Space_Grotesk } from 'next/font/google'
 import { LocaleProvider } from '@/contexts/LocaleContext'
@@ -47,6 +47,16 @@ export const metadata: Metadata = {
     description: 'Guess the production budget of iconic movies.',
     images: ['https://whatitcost.fr/api/og'],
   },
+}
+
+// Immersion mobile : viewport-fit=cover (le contenu peut s'étendre sous les
+// encoches, on gère via env(safe-area-inset-*)), et theme-color qui teinte la
+// barre du navigateur mobile à la couleur de fond du site.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0a0a0a',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

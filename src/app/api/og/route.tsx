@@ -12,6 +12,9 @@ import { ImageResponse } from 'next/og'
 // à côté de cette route) — satori rend donc correctement les accents.
 export const runtime = 'edge'
 
+// TODO(tokens) : image pré-rendue par satori (edge) — les CSS var(--accent) ne
+// sont PAS résolues ici. La couleur d'accent reste donc un littéral, à garder
+// synchronisé manuellement avec --accent (globals.css). Idem ShareScorecard.
 const CORAL = '#FF4D2E'
 
 // Syne 700/800 chargées une fois par instance edge (pattern officiel next/og).

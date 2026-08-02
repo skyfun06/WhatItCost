@@ -108,14 +108,14 @@ export default function DailyPage() {
           maxWidth: '480px',
           backgroundColor: '#1a1a1a',
           border: '1px solid #222222',
-          borderRadius: '16px',
+          borderRadius: 'var(--r-md)',
           gap: '22px',
         }}
       >
         <div className="flex flex-col items-center gap-2">
           <h1 className={`${syne.className} text-white uppercase`} style={{ fontSize: 'clamp(1.8rem, 7vw, 2.4rem)', lineHeight: 1 }}>
             {t.daily.title}
-            <span style={{ color: '#FF4D2E' }}>.</span>
+            <span style={{ color: 'var(--accent)' }}>.</span>
           </h1>
           {info && (
             <p className="text-xs uppercase tracking-[0.2em]" style={{ color: '#777777' }}>
@@ -129,7 +129,7 @@ export default function DailyPage() {
         ) : state?.done ? (
           // ── Déjà joué aujourd'hui : résultat + partage + compte à rebours ──
           <>
-            <p className="font-bold" style={{ color: '#FF4D2E' }}>✓ {t.daily.alreadyPlayed}</p>
+            <p className="font-bold" style={{ color: 'var(--accent)' }}>✓ {t.daily.alreadyPlayed}</p>
             <div className="flex flex-col items-center gap-1">
               <p className="text-xs uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 {t.daily.yourScore} — {modeLabel(state.mode)}
@@ -143,14 +143,14 @@ export default function DailyPage() {
               <button
                 onClick={doShare}
                 className="flex-1 min-w-[130px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
-                style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+                style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
               >
                 {t.game.shareNative}
               </button>
               <button
                 onClick={() => window.open(tweetIntentUrl(shareText, `${SITE_URL}/daily`), '_blank', 'noopener,noreferrer')}
                 className="flex-1 min-w-[130px] min-h-[44px] px-5 py-3 font-bold text-sm text-white uppercase tracking-wider"
-                style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px' }}
+                style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: 'var(--r-sm)' }}
               >
                 {t.game.shareTwitter}
               </button>
@@ -167,8 +167,8 @@ export default function DailyPage() {
             <p className="text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>{t.daily.intro}</p>
             <button
               onClick={() => router.push(`/game/${state.gameId}`)}
-              className="w-full py-4 font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.98]"
-              style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+              className="press w-full py-4 font-bold text-sm uppercase tracking-wider text-white hover:shadow-[0_6px_24px_var(--accent-glow)]"
+              style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
             >
               {t.daily.resume}
             </button>
@@ -193,8 +193,8 @@ export default function DailyPage() {
             <button
               onClick={start}
               disabled={starting || !info}
-              className="w-full py-4 font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.98] disabled:opacity-40"
-              style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+              className="press w-full py-4 font-bold text-sm uppercase tracking-wider text-white hover:shadow-[0_6px_24px_var(--accent-glow)] disabled:opacity-40"
+              style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
             >
               {starting ? t.daily.starting : t.daily.play}
             </button>
@@ -213,7 +213,7 @@ export default function DailyPage() {
       </div>
 
       {toast && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-[120] text-sm font-semibold" style={{ bottom: '88px', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px', padding: '10px 18px' }}>
+        <div className="fixed left-1/2 -translate-x-1/2 z-[120] text-sm font-semibold" style={{ bottom: '88px', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: 'var(--r-sm)', padding: '10px 18px' }}>
           {toast}
         </div>
       )}

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Syne } from 'next/font/google'
 import TypewriterTagline from '@/components/TypewriterTagline'
 import { useTranslation } from '@/hooks/useTranslation'
+import { tapHaptic } from '@/lib/haptics'
 
 const syne = Syne({
   subsets: ['latin'],
@@ -50,7 +51,7 @@ export default function HomeContent() {
             style={{ fontSize: 'clamp(3rem, 15vw, 9rem)' }}
           >
             <span className="text-white">COST</span>
-            <span style={{ color: '#FF4D2E' }}>?</span>
+            <span style={{ color: 'var(--accent)' }}>?</span>
           </span>
         </h1>
 
@@ -65,17 +66,18 @@ export default function HomeContent() {
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
               href="/settings?mode=solo"
-              className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
-              style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+              onClick={() => tapHaptic()}
+              className="press flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center hover:shadow-[0_6px_24px_var(--accent-glow)]"
+              style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
             >
               {t.home.playSolo}
             </Link>
             <Link
               href="/lobby/create"
-              className="flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-all duration-200 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
+              className="press flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center transition-colors hover:border-white/60 hover:bg-white/[0.06]"
               style={{
                 border: '1px solid rgba(255,255,255,0.35)',
-                borderRadius: '6px',
+                borderRadius: 'var(--r-sm)',
               }}
             >
               {t.home.playFriends}
@@ -85,12 +87,12 @@ export default function HomeContent() {
           {/* Défi du jour — même défi pour tous, nouveau chaque jour (minuit UTC) */}
           <Link
             href="/daily"
-            className="whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.35)] active:translate-y-0 active:scale-[0.97]"
+            className="press whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-center hover:shadow-[0_6px_24px_rgba(255,77,46,0.35)]"
             style={{
-              color: '#FF4D2E',
+              color: 'var(--accent)',
               border: '1px solid rgba(255,77,46,0.6)',
               backgroundColor: 'rgba(255,77,46,0.08)',
-              borderRadius: '6px',
+              borderRadius: 'var(--r-sm)',
             }}
           >
             🎬 {t.daily.title}
@@ -113,11 +115,11 @@ export default function HomeContent() {
             concurrencer les deux CTA pleins au-dessus */}
         <Link
           href="/leaderboard"
-          className="whitespace-nowrap py-3 px-8 font-bold text-xs uppercase tracking-[0.18em] text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.35)] active:translate-y-0 active:scale-[0.97]"
+          className="press whitespace-nowrap py-3 px-8 font-bold text-xs uppercase tracking-[0.18em] text-center hover:shadow-[0_6px_24px_rgba(255,77,46,0.35)]"
           style={{
-            color: '#FF4D2E',
+            color: 'var(--accent)',
             border: '1px solid rgba(255,77,46,0.6)',
-            borderRadius: '6px',
+            borderRadius: 'var(--r-sm)',
             backgroundColor: 'rgba(255,77,46,0.08)',
           }}
         >

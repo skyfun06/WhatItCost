@@ -10,7 +10,7 @@ type Status = 'idle' | 'sending' | 'sent' | 'error'
 const inputStyle: React.CSSProperties = {
   backgroundColor: '#16161e',
   border: '1px solid #2a2a38',
-  borderRadius: '8px',
+  borderRadius: 'var(--r-sm)',
   color: '#ffffff',
 }
 
@@ -47,9 +47,9 @@ export default function ContactForm() {
     return (
       <div
         className="flex flex-col items-start gap-2 p-6"
-        style={{ backgroundColor: '#16161e', border: '1px solid #222230', borderRadius: '12px' }}
+        style={{ backgroundColor: '#16161e', border: '1px solid #222230', borderRadius: 'var(--r-sm)' }}
       >
-        <p className="font-bold" style={{ color: '#FF4D2E' }}>✓ Message envoyé</p>
+        <p className="font-bold" style={{ color: 'var(--accent)' }}>✓ Message envoyé</p>
         <p className="text-sm" style={{ color: '#aaaab5' }}>
           Merci ! Ton message a bien été reçu. Une réponse arrivera dès que possible.
         </p>
@@ -130,8 +130,8 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={disabled}
-        className="self-start whitespace-nowrap px-7 py-3 text-sm font-bold uppercase tracking-wider text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"
-        style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+        className="press self-start whitespace-nowrap px-7 py-3 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50"
+        style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
       >
         {status === 'sending' ? 'Envoi…' : 'Envoyer'}
       </button>

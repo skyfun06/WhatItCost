@@ -101,9 +101,9 @@ export default async function BlogPostPage({ params }: Params) {
             <div
               className="relative w-full overflow-hidden"
               style={{
-                borderRadius: '14px',
+                borderRadius: 'var(--r-md)',
                 aspectRatio: '16 / 9',
-                background: 'linear-gradient(120deg, #ff5c3a 0%, #ff8c42 55%, #ffd166 100%)',
+                background: 'linear-gradient(120deg, var(--accent) 0%, #ffd166 100%)',
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

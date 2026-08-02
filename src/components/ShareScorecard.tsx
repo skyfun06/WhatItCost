@@ -18,6 +18,9 @@ import { formatScore } from '@/lib/utils/format'
 // Police Syne (identité visuelle) pour la scorecard partageable.
 const syne = Syne({ subsets: ['latin'], weight: ['700', '800'], display: 'swap' })
 
+// TODO(tokens) : carte capturée par html2canvas — les CSS var(--accent) ne sont
+// pas fiables à la capture. La couleur d'accent reste un littéral, à garder
+// synchronisé manuellement avec --accent (globals.css).
 const CORAL = '#FF4D2E'
 
 export interface ScorecardPoster {

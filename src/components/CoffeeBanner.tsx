@@ -76,8 +76,8 @@ export default function CoffeeBanner() {
           href={COFFEE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 sm:flex-none text-center min-h-[40px] flex items-center justify-center px-5 py-2 font-bold text-sm text-white whitespace-nowrap transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0"
-          style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+          className="press flex-1 sm:flex-none text-center min-h-[40px] flex items-center justify-center px-5 py-2 font-bold text-sm text-white whitespace-nowrap"
+          style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
         >
           {t.coffee.button} →
         </a>
@@ -86,7 +86,7 @@ export default function CoffeeBanner() {
           onClick={dismiss}
           aria-label={t.coffee.dismiss}
           className="shrink-0 flex items-center justify-center text-lg leading-none transition-colors hover:text-white"
-          style={{ color: '#888888', width: '32px', height: '32px', borderRadius: '6px' }}
+          style={{ color: '#888888', width: '32px', height: '32px', borderRadius: 'var(--r-sm)' }}
         >
           ✕
         </button>

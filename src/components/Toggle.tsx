@@ -51,11 +51,11 @@ export default function Toggle<T extends string | number>({
               style={{
                 padding: '8px 16px',
                 fontSize: '0.85rem',
-                borderRadius: '999px',
+                borderRadius: 'var(--r-pill)',
                 color: selected ? '#ffffff' : '#888888',
                 fontWeight: selected ? 700 : 400,
-                backgroundColor: selected ? '#FF4D2E' : '#111111',
-                border: `1px solid ${selected ? '#FF4D2E' : '#333333'}`,
+                backgroundColor: selected ? 'var(--accent)' : '#111111',
+                border: `1px solid ${selected ? 'var(--accent)' : '#333333'}`,
                 cursor: optDisabled ? 'not-allowed' : 'pointer',
                 opacity: !disabled && optDisabled ? 0.35 : 1,
                 whiteSpace: 'nowrap',
@@ -77,7 +77,7 @@ export default function Toggle<T extends string | number>({
         display: 'flex',
         backgroundColor: '#111111',
         border: '1px solid #222222',
-        borderRadius: '8px',
+        borderRadius: 'var(--r-sm)',
         padding: '4px',
         opacity: disabled ? 0.55 : 1,
       }}
@@ -92,9 +92,9 @@ export default function Toggle<T extends string | number>({
           left: '4px',
           width: `calc((100% - 8px) / ${count})`,
           transform: `translateX(${index * 100}%)`,
-          backgroundColor: '#FF4D2E',
-          borderRadius: '6px',
-          transition: 'all 0.2s ease',
+          backgroundColor: 'var(--accent)',
+          borderRadius: 'var(--r-sm)',
+          transition: 'transform var(--dur-base) var(--ease-liquid)',
         }}
       />
 
@@ -120,11 +120,11 @@ export default function Toggle<T extends string | number>({
               fontWeight: selected ? 700 : 400,
               cursor: optDisabled ? 'not-allowed' : 'pointer',
               opacity: !disabled && optDisabled ? 0.35 : 1,
-              borderRadius: '6px',
+              borderRadius: 'var(--r-sm)',
               background: 'transparent',
               border: 'none',
               whiteSpace: 'nowrap',
-              transition: 'color 0.2s ease',
+              transition: 'color var(--dur-base) var(--ease-snappy)',
             }}
           >
             {opt.label}

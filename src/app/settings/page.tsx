@@ -93,7 +93,7 @@ function SettingsContent() {
     >
       <div
         className="w-full mx-auto p-5 sm:p-8"
-        style={{ maxWidth: '560px', backgroundColor: '#1a1a1a', border: '1px solid #222222', borderRadius: '16px' }}
+        style={{ maxWidth: '560px', backgroundColor: '#1a1a1a', border: '1px solid #222222', borderRadius: 'var(--r-md)' }}
       >
         <span className="text-xs font-bold uppercase" style={{ color: 'rgba(255,255,255,0.45)', letterSpacing: '0.22em' }}>
           {t.settings.eyebrow}
@@ -128,7 +128,7 @@ function SettingsContent() {
           <Section label={t.settings.theme}>
             <ThemePicker value={theme} onChange={changeTheme} />
             {budgetOnlyTheme && (
-              <p style={{ marginTop: '8px', fontSize: '0.75rem', color: '#FF4D2E' }}>
+              <p style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--accent)' }}>
                 {t.settings.themeBudgetOnly}
               </p>
             )}
@@ -167,8 +167,8 @@ function SettingsContent() {
             <button
               type="button"
               onClick={() => start('solo')}
-              className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
-              style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: '#FF4D2E', borderRadius: '8px' }}
+              className="press flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white hover:shadow-[0_6px_24px_var(--accent-glow)]"
+              style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
             >
               {t.settings.startGame} →
             </button>
@@ -176,8 +176,8 @@ function SettingsContent() {
             <button
               type="button"
               onClick={() => start('multi')}
-              className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.97]"
-              style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: '#FF4D2E', borderRadius: '8px' }}
+              className="press flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white hover:shadow-[0_6px_24px_var(--accent-glow)]"
+              style={{ padding: '12px 20px', fontSize: '0.8rem', backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
             >
               {t.settings.createGame} →
             </button>
@@ -194,8 +194,8 @@ function SettingsContent() {
               <button
                 type="button"
                 onClick={() => start('multi')}
-                className="flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.97]"
-                style={{ padding: '12px 20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.35)', borderRadius: '8px' }}
+                className="press flex-1 min-h-[44px] font-bold uppercase tracking-wider text-white transition-colors hover:bg-white/[0.06]"
+                style={{ padding: '12px 20px', fontSize: '0.8rem', border: '1px solid rgba(255,255,255,0.35)', borderRadius: 'var(--r-sm)' }}
               >
                 {t.settings.playFriends} →
               </button>
