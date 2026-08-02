@@ -21,7 +21,7 @@ export default function LobbyPage() {
 
       <Link
         href="/lobby/create"
-        className="px-6 py-3 rounded-full bg-brand-gradient text-white font-bold text-center"
+        className="px-6 py-3 rounded-pill bg-brand-gradient text-white font-bold text-center"
       >
         {t.lobby.createGame}
       </Link>
@@ -36,12 +36,12 @@ export default function LobbyPage() {
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             placeholder="FILM42"
             maxLength={6}
-            className="flex-1 bg-bg-surface border border-white/10 rounded-xl px-4 py-3 text-white text-center tracking-widest uppercase focus:outline-none focus:border-brand"
+            className="flex-1 bg-bg-surface border border-white/10 rounded-o-md px-4 py-3 text-white text-center tracking-widest uppercase focus:outline-none focus:border-brand"
           />
           <button
             onClick={handleJoin}
             disabled={!code.trim()}
-            className="px-4 py-3 rounded-xl border border-white/20 font-bold disabled:opacity-40"
+            className="px-4 py-3 rounded-o-md border border-white/20 font-bold disabled:opacity-40"
           >
             {t.lobby.join}
           </button>

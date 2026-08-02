@@ -111,7 +111,7 @@ export default function LobbyCreatePage() {
           maxWidth: '480px',
           backgroundColor: '#1a1a1a',
           border: '1px solid #222222',
-          borderRadius: '16px',
+          borderRadius: 'var(--r-md)',
           gap: '24px',
         }}
       >
@@ -131,7 +131,7 @@ export default function LobbyCreatePage() {
           style={{
             backgroundColor: '#111111',
             border: '1px solid #333333',
-            borderRadius: '6px',
+            borderRadius: 'var(--r-sm)',
             padding: '12px 16px',
           }}
         />
@@ -142,7 +142,7 @@ export default function LobbyCreatePage() {
           onClick={handleCreate}
           disabled={loading || joining || !name.trim()}
           className="w-full py-4 font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.98] disabled:opacity-40"
-          style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+          style={{ backgroundColor: '#FF4D2E', borderRadius: 'var(--r-sm)' }}
         >
           {loading ? t.lobby.creating : t.lobby.createButton}
         </button>
@@ -172,7 +172,7 @@ export default function LobbyCreatePage() {
             style={{
               backgroundColor: '#111111',
               border: '1px solid #333333',
-              borderRadius: '6px',
+              borderRadius: 'var(--r-sm)',
               padding: '12px 16px',
             }}
           />
@@ -180,7 +180,7 @@ export default function LobbyCreatePage() {
             onClick={handleJoin}
             disabled={joining || loading || !code || !name.trim()}
             className="whitespace-nowrap px-5 py-3 font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:border-white/60 hover:bg-white/[0.06] active:translate-y-0 active:scale-[0.98] disabled:opacity-40"
-            style={{ border: '1px solid rgba(255,255,255,0.35)', borderRadius: '6px' }}
+            style={{ border: '1px solid rgba(255,255,255,0.35)', borderRadius: 'var(--r-sm)' }}
           >
             {joining ? t.lobby.connecting : t.lobby.join}
           </button>

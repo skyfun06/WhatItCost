@@ -217,7 +217,7 @@ export default function LobbyRoomPage() {
     <AnimatedBackground className="min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12" style={{ backgroundColor: '#111111' }}>
       <div
         className="w-full mx-auto flex flex-col text-white p-6 sm:p-8"
-        style={{ maxWidth: '760px', backgroundColor: '#1a1a1a', border: '1px solid #222222', borderRadius: '16px', gap: '24px' }}
+        style={{ maxWidth: '760px', backgroundColor: '#1a1a1a', border: '1px solid #222222', borderRadius: 'var(--r-md)', gap: '24px' }}
       >
         {/* Game code */}
         <div className="flex flex-col items-center gap-2 text-center">
@@ -230,9 +230,9 @@ export default function LobbyRoomPage() {
           <span className="text-xs uppercase" style={labelStyle}>{t.lobby.inviteLink}</span>
           <div className="flex gap-2">
             <input readOnly value={joinUrl} className="flex-1 min-w-0 text-xs text-muted focus:outline-none"
-              style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: '6px', padding: '12px 16px' }} />
+              style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: 'var(--r-sm)', padding: '12px 16px' }} />
             <button onClick={copyLink} className="whitespace-nowrap font-bold text-sm uppercase tracking-wider text-white transition-all duration-150 hover:bg-white/[0.06]"
-              style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: '6px', padding: '12px 16px' }}>
+              style={{ border: '1px solid rgba(255,255,255,0.5)', borderRadius: 'var(--r-sm)', padding: '12px 16px' }}>
               {copied ? '✓' : t.lobby.copy}
             </button>
           </div>
@@ -295,7 +295,7 @@ export default function LobbyRoomPage() {
             <div className="flex flex-col gap-2">
               {players.map((p) => (
                 <div key={p.id} className="flex items-center gap-3"
-                  style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: '6px', padding: '12px 16px' }}>
+                  style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: 'var(--r-sm)', padding: '12px 16px' }}>
                   <span className="font-medium text-white">{p.name}</span>
                   {p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.host}</span>}
                   {p.id === playerId && !p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.you}</span>}
@@ -311,7 +311,7 @@ export default function LobbyRoomPage() {
             onClick={handleStart}
             disabled={starting || players.length < 1}
             className="w-full py-4 font-bold text-sm uppercase tracking-wider text-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_24px_rgba(255,77,46,0.5)] active:translate-y-0 active:scale-[0.98] disabled:opacity-40"
-            style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
+            style={{ backgroundColor: '#FF4D2E', borderRadius: 'var(--r-sm)' }}
           >
             {starting ? t.lobby.starting : t.lobby.start}
           </button>
