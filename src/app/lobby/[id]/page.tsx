@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useTranslation } from '@/hooks/useTranslation'
 import { getWatchedMovieIds } from '@/lib/watchedMovies'
 import AnimatedBackground from '@/components/AnimatedBackground'
+import EmptyState from '@/components/states/EmptyState'
+import { Users } from 'lucide-react'
 import Toggle from '@/components/Toggle'
 import MultiToggle from '@/components/MultiToggle'
 import ThemePicker from '@/components/ThemePicker'
@@ -292,16 +294,24 @@ export default function LobbyRoomPage() {
             <span className="text-xs uppercase" style={labelStyle}>
               {players.length} {players.length > 1 ? t.lobby.players : t.lobby.player}
             </span>
-            <div className="flex flex-col gap-2">
-              {players.map((p) => (
-                <div key={p.id} className="flex items-center gap-3"
-                  style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: 'var(--r-sm)', padding: '12px 16px' }}>
-                  <span className="font-medium text-white">{p.name}</span>
-                  {p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.host}</span>}
-                  {p.id === playerId && !p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.you}</span>}
-                </div>
-              ))}
-            </div>
+            {players.length === 0 ? (
+              <EmptyState
+                icon={<Users size={22} strokeWidth={1.8} aria-hidden="true" />}
+                title={t.lobby.waitingPlayers}
+                subtext={t.lobby.waitingPlayersHint}
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {players.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3"
+                    style={{ backgroundColor: '#111111', border: '1px solid #333333', borderRadius: 'var(--r-sm)', padding: '12px 16px' }}>
+                    <span className="font-medium text-white">{p.name}</span>
+                    {p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.host}</span>}
+                    {p.id === playerId && !p.is_host && <span className="text-xs ml-auto" style={{ color: '#555555' }}>{t.common.you}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

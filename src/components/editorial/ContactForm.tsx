@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from '@/hooks/useTranslation'
 
 // Formulaire de contact. Poste vers /api/contact qui enregistre le message dans
 // Supabase. Champ honeypot ("website") invisible : rempli = bot, on ignore.
@@ -15,6 +16,7 @@ const inputStyle: React.CSSProperties = {
 }
 
 export default function ContactForm() {
+  const { t } = useTranslation()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -49,9 +51,9 @@ export default function ContactForm() {
         className="flex flex-col items-start gap-2 p-6"
         style={{ backgroundColor: '#16161e', border: '1px solid #222230', borderRadius: 'var(--r-sm)' }}
       >
-        <p className="font-bold" style={{ color: 'var(--accent)' }}>✓ Message envoyé</p>
+        <p className="font-bold" style={{ color: 'var(--accent)' }}>✓ {t.contact.success}</p>
         <p className="text-sm" style={{ color: '#aaaab5' }}>
-          Merci ! Ton message a bien été reçu. Une réponse arrivera dès que possible.
+          {t.contact.successSub}
         </p>
       </div>
     )

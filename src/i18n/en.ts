@@ -190,6 +190,12 @@ export const en = {
     connecting: 'Connecting…',
     settings: 'Settings',
     configuredByHost: 'Set by the host',
+    waitingPlayers: 'Waiting for players…',
+    waitingPlayersHint: 'Share the game code so your friends can join you.',
+  },
+  contact: {
+    success: 'Message sent',
+    successSub: 'Thanks! Your message came through. A reply will arrive as soon as possible.',
   },
   results: {
     title: 'Results',

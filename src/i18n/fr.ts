@@ -190,6 +190,12 @@ export const fr = {
     connecting: 'Connexion…',
     settings: 'Réglages',
     configuredByHost: 'Configuré par l\'hôte',
+    waitingPlayers: 'En attente de joueurs…',
+    waitingPlayersHint: 'Partage le code de la partie pour que tes amis te rejoignent.',
+  },
+  contact: {
+    success: 'Message envoyé',
+    successSub: 'Merci ! Ton message a bien été reçu. Une réponse arrivera dès que possible.',
   },
   results: {
     title: 'Résultats',
