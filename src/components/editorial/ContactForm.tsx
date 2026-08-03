@@ -70,7 +70,7 @@ export default function ContactForm() {
           maxLength={80}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="px-4 py-3 text-sm outline-none focus:border-[#FF4D2E]"
+          className="min-h-[44px] px-4 py-3 text-sm outline-none focus:border-[#FF4D2E]"
           style={inputStyle}
         />
       </div>
@@ -86,7 +86,7 @@ export default function ContactForm() {
           maxLength={160}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="px-4 py-3 text-sm outline-none focus:border-[#FF4D2E]"
+          className="min-h-[44px] px-4 py-3 text-sm outline-none focus:border-[#FF4D2E]"
           style={inputStyle}
           placeholder="pour pouvoir te répondre"
         />
@@ -130,7 +130,7 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={disabled}
-        className="press self-start whitespace-nowrap px-7 py-3 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50"
+        className="press self-start min-h-[44px] whitespace-nowrap px-7 py-3 text-sm font-bold uppercase tracking-wider text-white disabled:opacity-50"
         style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}
       >
         {status === 'sending' ? 'Envoi…' : 'Envoyer'}

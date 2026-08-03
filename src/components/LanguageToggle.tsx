@@ -41,7 +41,7 @@ export default function LanguageToggle() {
             type="button"
             aria-pressed={selected}
             onClick={() => setLocale(l)}
-            className="relative z-[1] flex-1 cursor-pointer rounded-md border-none bg-transparent px-3 py-1.5 text-center text-[0.7rem] uppercase tracking-[0.05em] sm:px-4 sm:text-[0.8rem]"
+            className="relative z-[1] flex min-h-[44px] flex-1 cursor-pointer items-center justify-center rounded-md border-none bg-transparent px-3 py-1.5 text-center text-[0.7rem] uppercase tracking-[0.05em] sm:px-4 sm:text-[0.8rem] md:min-h-0"
             style={{
               fontWeight: selected ? 700 : 400,
               color: selected ? '#ffffff' : '#888888',

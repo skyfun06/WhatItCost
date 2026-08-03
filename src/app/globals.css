@@ -12,6 +12,11 @@
     --accent: #FF4D2E;
     --accent-glow: rgba(255, 77, 46, 0.55);
 
+    /* Hauteur du dock mobile (conteneur bille + barre). Miroir de CONTAINER_H
+       dans MobileDock.tsx : garde les éléments flottants (toasts) au-dessus du
+       dock sans nombre magique. Combiner avec env(safe-area-inset-bottom). */
+    --dock-h: 88px;
+
     /* Rayons organiques (généreux). */
     --r-sm: 10px;
     --r-md: 16px;

@@ -116,8 +116,9 @@ export default function ThemePicker({
     <div
       style={{
         display: 'grid',
-        // auto-fill responsive : ~2 colonnes sur mobile, 3-4 sur desktop.
-        gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))',
+        // auto-fill responsive : min réduit à 108px pour garantir 2 colonnes dès
+        // 320px (marge sûre) sans densifier le desktop (toujours ~4 colonnes).
+        gridTemplateColumns: 'repeat(auto-fill, minmax(108px, 1fr))',
         // Toutes les rangées à la hauteur de la plus haute → cellules uniformes.
         gridAutoRows: '1fr',
         gap: '4px',

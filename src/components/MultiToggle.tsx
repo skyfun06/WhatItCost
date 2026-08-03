@@ -60,14 +60,18 @@ export default function MultiToggle<T extends string>({
               aria-pressed={selected}
               disabled={disabled}
               onClick={() => !disabled && onToggle(opt.value)}
+              className="min-h-[44px] md:min-h-[40px]"
               style={{
-                padding: '10px 16px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px 16px',
                 fontSize: 'clamp(0.7rem, 2.6vw, 0.85rem)',
                 color: selected ? '#ffffff' : '#888888',
                 fontWeight: selected ? 700 : 400,
                 backgroundColor: selected ? 'var(--accent)' : 'transparent',
                 cursor: disabled ? 'default' : 'pointer',
-                borderRadius: '6px',
+                borderRadius: 'var(--r-sm)',
                 border: 'none',
                 whiteSpace: 'nowrap',
                 transition: 'all 0.2s ease',
@@ -103,11 +107,14 @@ export default function MultiToggle<T extends string>({
             aria-pressed={selected}
             disabled={disabled}
             onClick={() => !disabled && onToggle(opt.value)}
+            className="min-h-[44px] md:min-h-[38px]"
             style={{
               flex: 1,
               minWidth: 0,
-              textAlign: 'center',
-              padding: '10px 2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 6px',
               fontSize: 'clamp(0.7rem, 2.6vw, 0.85rem)',
               color: selected ? '#ffffff' : '#888888',
               fontWeight: selected ? 700 : 400,
@@ -116,6 +123,8 @@ export default function MultiToggle<T extends string>({
               borderRadius: 'var(--r-sm)',
               border: 'none',
               whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               transition: 'all 0.2s ease',
             }}
           >

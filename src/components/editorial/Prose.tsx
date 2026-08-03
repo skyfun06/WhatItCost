@@ -21,7 +21,12 @@ export default function Prose({ children }: { children: string }) {
           font-size: 1.075rem;
           line-height: 1.75;
           max-width: 700px;
+          /* Anti-débordement en petit écran : un mot/URL très long se casse au
+             lieu de pousser la largeur de la page. */
+          overflow-wrap: break-word;
+          word-break: break-word;
         }
+        .wic-prose img { max-width: 100%; height: auto; }
         .wic-prose > *:first-child { margin-top: 0; }
         .wic-prose p { margin: 1.25em 0; }
         .wic-prose h2 {

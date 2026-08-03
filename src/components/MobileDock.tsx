@@ -22,6 +22,9 @@ const ACCENT = '#FF4D2E'
 const BAR_BG = '#1a1a1a'
 
 // Géométrie (px). La barre occupe le bas ; la bille flotte au-dessus de son bord.
+// CONTAINER_H est aussi exposé en CSS via --dock-h (globals.css) pour que les
+// éléments flottants (toasts) se positionnent au-dessus du dock sans dupliquer
+// la valeur — garder les deux synchronisés.
 const CONTAINER_H = 88
 const BAR_H = 60
 const BALL = 46

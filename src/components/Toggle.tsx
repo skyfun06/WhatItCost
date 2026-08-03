@@ -108,13 +108,17 @@ export default function Toggle<T extends string | number>({
             aria-pressed={selected}
             disabled={optDisabled}
             onClick={() => !optDisabled && onChange(opt.value)}
+            // Cible tactile ≥44px sur mobile, densité desktop conservée (38px).
+            className="min-h-[44px] md:min-h-[38px]"
             style={{
               position: 'relative',
               zIndex: 1,
               flex: 1,
               minWidth: 0,
-              textAlign: 'center',
-              padding: '10px 2px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 6px',
               fontSize: 'clamp(0.7rem, 2.6vw, 0.85rem)',
               color: selected ? '#ffffff' : '#888888',
               fontWeight: selected ? 700 : 400,
@@ -123,7 +127,11 @@ export default function Toggle<T extends string | number>({
               borderRadius: 'var(--r-sm)',
               background: 'transparent',
               border: 'none',
+              // Garde-fou anti-débordement : ellipsis plutôt que spill si un
+              // libellé dépasse son slot en très petit écran.
               whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
               transition: 'color var(--dur-base) var(--ease-snappy)',
             }}
           >

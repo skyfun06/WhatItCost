@@ -213,7 +213,7 @@ export default function DailyPage() {
       </div>
 
       {toast && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-[120] text-sm font-semibold" style={{ bottom: '88px', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: 'var(--r-sm)', padding: '10px 18px' }}>
+        <div className="fixed left-1/2 -translate-x-1/2 z-[120] text-sm font-semibold" style={{ bottom: 'calc(var(--dock-h) + env(safe-area-inset-bottom))', backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: 'var(--r-sm)', padding: '10px 18px' }}>
           {toast}
         </div>
       )}
