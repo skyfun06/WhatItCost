@@ -247,4 +247,20 @@ export const en = {
     invalidCode: 'Invalid code.',
     generic: 'Something went wrong. Try again.',
   },
+  // Cross-cutting UI states: loading, 404, error.
+  states: {
+    loading: {
+      label: 'Estimating the budget…',
+    },
+    notFound: {
+      title: 'Cut from the final edit',
+      message: "This page doesn't exist.",
+    },
+    error: {
+      title: 'Cut! Something broke.',
+      message: 'An unexpected hiccup on set. Give it another take.',
+      retry: 'Try again',
+    },
+    home: 'Back home',
+  },
 } as const

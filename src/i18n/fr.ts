@@ -247,4 +247,20 @@ export const fr = {
     invalidCode: 'Code invalide.',
     generic: 'Une erreur est survenue. Réessaie.',
   },
+  // États d'interface transverses : chargement, 404, erreur.
+  states: {
+    loading: {
+      label: 'Estimation du budget…',
+    },
+    notFound: {
+      title: 'Scène coupée au montage',
+      message: "Cette page n'existe pas.",
+    },
+    error: {
+      title: 'Coupez ! Quelque chose a planté.',
+      message: 'Un imprévu sur le plateau. Retente une prise.',
+      retry: 'Réessayer',
+    },
+    home: "Retour à l'accueil",
+  },
 } as const
