@@ -92,7 +92,7 @@ export default function CommentJouerPage() {
 
       <div className="mt-10 flex flex-wrap gap-3">
         <Link
-          href="/settings?mode=solo"
+          href="/configure?mode=solo"
           className="whitespace-nowrap px-6 py-3 text-sm font-bold uppercase tracking-wider text-white transition-transform hover:-translate-y-0.5"
           style={{ backgroundColor: '#FF4D2E', borderRadius: '6px' }}
         >

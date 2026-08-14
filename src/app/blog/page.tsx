@@ -34,7 +34,7 @@ export default function BlogIndexPage() {
           style={{ backgroundColor: '#16161e', border: '1px solid #222230', borderRadius: '12px', color: '#9999a5' }}
         >
           <p>Les premiers articles arrivent très bientôt. Reviens vite !</p>
-          <Link href="/settings?mode=solo" className="mt-4 inline-block font-semibold" style={{ color: '#FF4D2E' }}>
+          <Link href="/configure?mode=solo" className="mt-4 inline-block font-semibold" style={{ color: '#FF4D2E' }}>
             En attendant, lance une partie →
           </Link>
         </div>

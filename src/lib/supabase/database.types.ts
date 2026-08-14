@@ -236,6 +236,33 @@ export interface Database {
         }
         Relationships: []
       }
+
+      // ── profiles ──────────────────────────────────────────────────────────────
+      // 1-1 avec auth.users. Compte optionnel : pseudo + records synchronisables.
+      profiles: {
+        Row: {
+          id: string
+          username: string | null
+          hol_best: number
+          updated_at: string
+          [key: string]: unknown
+        }
+        Insert: {
+          id: string
+          username?: string | null
+          hol_best?: number
+          updated_at?: string
+          [key: string]: unknown
+        }
+        Update: {
+          id?: string
+          username?: string | null
+          hol_best?: number
+          updated_at?: string
+          [key: string]: unknown
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

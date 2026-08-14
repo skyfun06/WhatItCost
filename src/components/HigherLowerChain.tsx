@@ -9,6 +9,8 @@ import LeaderboardSubmit from '@/components/LeaderboardSubmit'
 import DailyCountdown from '@/components/DailyCountdown'
 import ShareScorecard from '@/components/ShareScorecard'
 import { useTranslation } from '@/hooks/useTranslation'
+import { useAuth } from '@/contexts/AuthContext'
+import { pushHolBestIfSignedIn } from '@/lib/accountSync'
 import { recordWatchedMovieIds } from '@/lib/watchedMovies'
 import { HOL_LOOKAHEAD } from '@/lib/gameSettings'
 import { isDailyGame, recordDailyScore } from '@/lib/dailyChallenge'
@@ -64,6 +66,8 @@ function shortName(name: string): string {
 export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) {
   const router = useRouter()
   const { t, locale } = useTranslation()
+  // Synchro record vers le compte (no-op si non connecté).
+  const { supabase } = useAuth()
 
   const [phase, setPhase] = useState<Phase>('loading')
   const [movies, setMovies] = useState<ChainMovie[]>([])
@@ -243,6 +247,7 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
             if (finalScore > prevBest) {
               setNewRecord(true)
               try { localStorage.setItem(BEST_KEY, String(finalScore)) } catch { /* ignore */ }
+              void pushHolBestIfSignedIn(supabase, finalScore)
               return finalScore
             }
             return prevBest
@@ -304,6 +309,7 @@ export default function HigherLowerChain({ gameId, playerId, gameMode }: Props) 
         if (position > prevBest) {
           setNewRecord(true)
           try { localStorage.setItem(BEST_KEY, String(position)) } catch { /* ignore */ }
+          void pushHolBestIfSignedIn(supabase, position)
           return position
         }
         return prevBest

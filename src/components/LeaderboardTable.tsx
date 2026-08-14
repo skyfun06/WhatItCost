@@ -61,7 +61,7 @@ export default function LeaderboardTable() {
         <p className="text-sm" style={{ color: '#888888' }}>{t.leaderboard.subtitle}</p>
       </div>
 
-      {/* Onglets par mode — même style que les toggles de /settings */}
+      {/* Onglets par mode — même style que les toggles de /configure */}
       <MultiToggle<Mode>
         options={[
           { value: 'budget', label: t.leaderboard.tabBudget },

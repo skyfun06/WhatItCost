@@ -65,7 +65,7 @@ export default function HomeContent() {
         >
           <div className="flex flex-col sm:flex-row gap-3">
             <Link
-              href="/settings?mode=solo"
+              href="/configure?mode=solo"
               onClick={() => tapHaptic()}
               className="press flex-1 whitespace-nowrap py-4 px-5 font-bold text-sm uppercase tracking-wider text-white text-center hover:shadow-[0_6px_24px_var(--accent-glow)]"
               style={{ backgroundColor: 'var(--accent)', borderRadius: 'var(--r-sm)' }}

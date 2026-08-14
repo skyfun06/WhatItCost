@@ -29,7 +29,7 @@ export default function LobbyCreatePage() {
     setLoading(true)
     setError(null)
     try {
-      // Réglages éventuellement transmis par /settings via l'URL : on les fait
+      // Réglages éventuellement transmis par /configure via l'URL : on les fait
       // suivre pour pré-remplir le lobby. Absents (flux accueil → /lobby/create
       // direct) → le serveur applique les valeurs par défaut.
       const sp = new URLSearchParams(window.location.search)

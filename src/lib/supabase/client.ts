@@ -14,3 +14,7 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 }
+
+// Type du client navigateur, dérivé de createClient — évite de réécrire à la main
+// les génériques de SupabaseClient (dont la signature varie selon la version).
+export type BrowserClient = ReturnType<typeof createClient>

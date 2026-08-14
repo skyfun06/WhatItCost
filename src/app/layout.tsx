@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
 import { Space_Grotesk } from 'next/font/google'
 import { LocaleProvider } from '@/contexts/LocaleContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import LanguageToggle from '@/components/LanguageToggle'
 import CoffeeBanner from '@/components/CoffeeBanner'
 import MobileDock from '@/components/MobileDock'
@@ -89,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           sans prop drilling ni rechargement de page.
         */}
         <LocaleProvider>
+         <AuthProvider>
           {/* Logo cliquable, fixé en haut à gauche de chaque page */}
           <Link
             href="/"
@@ -117,6 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Dock de navigation mobile — fixé en bas, mobile uniquement, masqué en jeu.
               Rend aussi un cale-pied qui réserve sa hauteur en bas de page (mobile). */}
           <MobileDock />
+         </AuthProvider>
         </LocaleProvider>
       </body>
     </html>

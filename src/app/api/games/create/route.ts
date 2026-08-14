@@ -41,7 +41,7 @@ export async function POST(request: Request) {
           timer_seconds: settings.timer,
           // genre/difficulty (colonnes texte legacy) : la source de vérité est
           // game_settings (JSONB, multi-sélection). On laisse leur défaut 'all'.
-          // Réglages reçus (sanitizés) : si l'hôte a déjà configuré sur /settings,
+          // Réglages reçus (sanitizés) : si l'hôte a déjà configuré sur /configure,
           // le lobby les pré-affiche au lieu de repartir sur les valeurs par défaut.
           // Body sans réglages → sanitizeSettings renvoie les défauts (flux accueil).
           game_settings: settings,
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // ── Solo : réglages choisis sur /settings → on récupère les films tout de suite ──
+    // ── Solo : réglages choisis sur /configure → on récupère les films tout de suite ──
     const isHoL = settings.gameMode === 'higher_or_lower'
     const count = moviesNeeded(settings)
     // Higher or Lower : tirage diversifié + ordonné en chaîne. Budget Guess : tirage usuel.
