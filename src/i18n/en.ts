@@ -100,6 +100,7 @@ export const en = {
     accountLabel: 'Account',
     accountDesc: 'Sign in to sync your nickname and records across all your devices. Optional — the game stays playable without an account.',
     signInGoogle: 'Continue with Google',
+    signingIn: 'Redirecting…',
     signedInAs: 'Signed in as',
     signOut: 'Sign out',
     syncNow: 'Sync now',

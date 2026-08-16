@@ -17,7 +17,13 @@ interface AuthContextValue {
   loading: boolean
   /** Client Supabase navigateur partagé (singleton du provider). */
   supabase: BrowserClient
-  signInWithGoogle: () => Promise<void>
+  /**
+   * Lance le flux OAuth Google. En cas de succès, le navigateur est redirigé
+   * vers Google (la promesse ne « résout » donc pas côté UI). Retourne une
+   * erreur lisible si l'appel échoue avant la redirection (provider non activé,
+   * config manquante, réseau) pour que l'appelant puisse l'afficher.
+   */
+  signInWithGoogle: () => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
 
@@ -46,12 +52,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe()
   }, [supabase])
 
-  async function signInWithGoogle() {
-    const redirectTo = `${window.location.origin}/auth/callback?next=/settings`
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo },
-    })
+  async function signInWithGoogle(): Promise<{ error: string | null }> {
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback?next=/settings`
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      })
+      if (error) {
+        console.error('[WIC] signInWithGoogle', error.message)
+        return { error: error.message }
+      }
+      // Succès : signInWithOAuth déclenche la redirection vers Google.
+      return { error: null }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'unknown'
+      console.error('[WIC] signInWithGoogle', message)
+      return { error: message }
+    }
   }
 
   async function signOut() {

@@ -96,6 +96,7 @@ export default function SettingsPage() {
   const [sync, setSync] = useState<SyncResult | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [authError, setAuthError] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -126,6 +127,19 @@ export default function SettingsPage() {
       active = false
     }
   }, [user, supabase])
+
+  async function handleSignIn() {
+    setAuthError(false)
+    setSigningIn(true)
+    tapHaptic()
+    const { error } = await signInWithGoogle()
+    if (error) {
+      // La redirection n'a pas eu lieu → on reste sur la page : montre l'erreur.
+      setAuthError(true)
+      setSigningIn(false)
+    }
+    // Sinon : le navigateur part vers Google, on garde l'état « en cours ».
+  }
 
   async function runSync() {
     if (!user) return
@@ -394,7 +408,8 @@ export default function SettingsPage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => signInWithGoogle()}
+                  onClick={handleSignIn}
+                  disabled={signingIn}
                   className="press mt-4 w-full sm:w-auto flex items-center justify-center gap-3 min-h-[48px]"
                   style={{
                     padding: '0 24px',
@@ -403,10 +418,16 @@ export default function SettingsPage() {
                     color: '#1a1a1a',
                     backgroundColor: '#ffffff',
                     borderRadius: 'var(--r-sm)',
+                    opacity: signingIn ? 0.7 : 1,
+                    cursor: signingIn ? 'wait' : 'pointer',
                   }}
                 >
-                  <GoogleGlyph />
-                  {t.prefs.signInGoogle}
+                  {signingIn ? (
+                    <RefreshCw size={16} strokeWidth={2.4} className="animate-spin" />
+                  ) : (
+                    <GoogleGlyph />
+                  )}
+                  {signingIn ? t.prefs.signingIn : t.prefs.signInGoogle}
                 </button>
               </>
             )}

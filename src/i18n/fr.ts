@@ -100,6 +100,7 @@ export const fr = {
     accountLabel: 'Compte',
     accountDesc: 'Connecte-toi pour synchroniser ton pseudo et tes records entre tous tes appareils. Optionnel — le jeu reste jouable sans compte.',
     signInGoogle: 'Continuer avec Google',
+    signingIn: 'Redirection…',
     signedInAs: 'Connecté en tant que',
     signOut: 'Se déconnecter',
     syncNow: 'Synchroniser maintenant',
